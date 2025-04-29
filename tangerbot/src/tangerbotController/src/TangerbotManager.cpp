@@ -1,14 +1,5 @@
-#include <cstdio>
 #include <iostream>
 
-// int main(int argc, char ** argv)
-// {
-//   (void) argc;
-//   (void) argv;
-
-//   printf("Tangerbot Package, TangerbotManager Node is Starting! \n");
-//   return 0;
-// }
 
 class TangerbotManager
 {
@@ -48,7 +39,7 @@ class TangerbotManager
 
 int main()
 {
-    std::cout << "Tangerbot Package, TangerbotManager Node is Starting!\n";
+    printf("Tangerbot Package, TangerbotManager Node is Starting!\n");
 
     TangerbotManager bot(42); // Create a robot with ID 42
     bot.printStatus();        // Should say inactive
