@@ -12,7 +12,7 @@
         "name": "Debug-rclcpp(gbd)",
         "type": "cppdbg",
         "request": "launch",
-        "program": "${workspaceFolder}/install/${input:package}/lib/${input:package}/${input:node}",
+        "program": "${workspaceFolder}/install/${input:package}/lib/${input:package}/${input:node}                                                                                                                                                        ",
         "args": [],
         "preLaunchTask": "colcon: build",
         "stopAtEntry": true,
