@@ -7,6 +7,8 @@ using std::string;
 #include "rclcpp/rclcpp.hpp"
 #include "tangerbot_msgs/msg/robot_state.hpp"
 using namespace std::chrono_literals;
+
+
 class TangerbotManager : public rclcpp::Node
 {
 private:
@@ -15,6 +17,7 @@ private:
     int motion_status;
     float battery;
     rclcpp::Publisher<tangerbot_msgs::msg::RobotState>::SharedPtr publisher;
+    rclcpp::Subscription<tangerbot_msgs::msg::RobotPose>::SharedPtr subscription;
     rclcpp::TimerBase::SharedPtr timer_;
 
 public:
@@ -27,11 +30,12 @@ public:
          * Create topic for publishing robot state
         */
         publisher = this->create_publisher<tangerbot_msgs::msg::RobotState>("robot_state", 10); 
-        timer_ = this->create_wall_timer(500ms, std::bind(&TangerbotManager::timer_callback, this));
+        tangerbot_msgs::msg::RobotState msgState;
+        msgState.robot_id = "RB1";
+        publisher->publish(msgState);
 
-        tangerbot_msgs::msg::RobotState msg;
-        msg.robot_id = "RB1";
-        publisher->publish(msg);
+        subscriber = this->create_subscription<tangerbot_msgs::msg::RobotPose>("robot_pose", 10);
+        timer_ = this->create_wall_timer(500ms, std::bind(&TangerbotManager::timer_callback, this));
 
     }
 
@@ -44,7 +48,7 @@ public:
     }
 
     /*
-     *Timer Callback
+     * Robot State Callback
     */
     void timer_callback() {
         auto msg = tangerbot_msgs::msg::RobotState();
@@ -58,16 +62,6 @@ public:
 
 int main(int argc , char **argv)
 {
-    // printf("Tangerbot Package, TangerbotManager Node is Starting!\n");
-
-    // TangerbotManager bot("RB1"); // Create a robot with ID 42
-    // bot.printStatus();        // Should say inactive
-
-    // bot.setStatus(1);         // Activate robot
-    // bot.printStatus();        // Should say active
-
-    // return 0;
-
     rclcpp::init(argc, argv);
     auto pub = std::make_shared<TangerbotManager>();
     rclcpp::spin(pub);
