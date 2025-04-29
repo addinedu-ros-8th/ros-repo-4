@@ -1,51 +1,76 @@
 #include <iostream>
+#include <string>
+#include <cstdint>
+#include <chrono>
+using std::string;
 
-
-class TangerbotManager
+#include "rclcpp/rclcpp.hpp"
+#include "tangerbot_msgs/msg/robot_state.hpp"
+using namespace std::chrono_literals;
+class TangerbotManager : public rclcpp::Node
 {
-  private:
-    int robotID;
-    int robotStatus;
+private:
+    string robot_id;
+    int main_status;
+    int motion_status;
+    float battery;
+    rclcpp::Publisher<tangerbot_msgs::msg::RobotState>::SharedPtr publisher;
+    rclcpp::TimerBase::SharedPtr timer_;
 
-  /**
-  * *Constructor
-  */
-  public:
-  // Constructor
-  TangerbotManager(int id)
-      : robotID(id), robotStatus(0) // Default to inactive
-  {}
+public:
+    /*
+     * Constructor
+    */
+    TangerbotManager() : Node("tangerbot_manager")
+    {
+        /*
+         * Create topic for publishing robot state
+        */
+        publisher = this->create_publisher<tangerbot_msgs::msg::RobotState>("robot_state", 10); 
+        timer_ = this->create_wall_timer(500ms, std::bind(&TangerbotManager::timer_callback, this));
 
-  // Set the status
-  void setStatus(int status)
-  {
-      robotStatus = status;
-  }
+        tangerbot_msgs::msg::RobotState msg;
+        msg.robot_id = "RB1";
+        publisher->publish(msg);
 
-  // Report the status
-  void printStatus() const
-  {
-      if (robotStatus == 1)
-      {
-          std::cout << "Robot " << robotID << " is active." << std::endl;
-      }
-      else
-      {
-          std::cout << "Robot " << robotID << " is inactive." << std::endl;
-      }
-  }
+    }
+
+    /*
+     * Robot Status (Working, Idle)
+    */
+    void setStatus(int status)
+    {
+        main_status = status;
+    }
+
+    /*
+     *Timer Callback
+    */
+    void timer_callback() {
+        auto msg = tangerbot_msgs::msg::RobotState();
+        msg.main_status = tangerbot_msgs::msg::RobotState::IDLE;
+    
+        publisher->publish(msg);
+    }
+    
 };
 
 
-int main()
+int main(int argc , char **argv)
 {
-    printf("Tangerbot Package, TangerbotManager Node is Starting!\n");
+    // printf("Tangerbot Package, TangerbotManager Node is Starting!\n");
 
-    TangerbotManager bot(42); // Create a robot with ID 42
-    bot.printStatus();        // Should say inactive
+    // TangerbotManager bot("RB1"); // Create a robot with ID 42
+    // bot.printStatus();        // Should say inactive
 
-    bot.setStatus(1);         // Activate robot
-    bot.printStatus();        // Should say active
+    // bot.setStatus(1);         // Activate robot
+    // bot.printStatus();        // Should say active
 
+    // return 0;
+
+    rclcpp::init(argc, argv);
+    auto pub = std::make_shared<TangerbotManager>();
+    rclcpp::spin(pub);
+    rclcpp::shutdown();
     return 0;
 }
