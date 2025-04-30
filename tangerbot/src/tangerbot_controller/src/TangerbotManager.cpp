@@ -6,6 +6,7 @@ using std::string;
 
 #include "rclcpp/rclcpp.hpp"
 #include "tangerbot_msgs/msg/robot_state.hpp"
+#include "tangerbot_msgs/msg/robot_pose.hpp"
 using namespace std::chrono_literals;
 
 
@@ -35,12 +36,12 @@ public:
         publisher->publish(msgState);
 
         subscriber = this->create_subscription<tangerbot_msgs::msg::RobotPose>("robot_pose", 10);
-        timer_ = this->create_wall_timer(500ms, std::bind(&TangerbotManager::timer_callback, this));
+        timer_ = this->create_wall_timer(500ms, std::bind(&TangerbotManager::state_callback, this));
 
     }
 
     /*
-     * Robot Status (Working, Idle)
+     * Robot State (Working, Idle)
     */
     void setStatus(int status)
     {
@@ -50,12 +51,20 @@ public:
     /*
      * Robot State Callback
     */
-    void timer_callback() {
+    void state_callback() {
         auto msg = tangerbot_msgs::msg::RobotState();
         msg.main_status = tangerbot_msgs::msg::RobotState::IDLE;
     
         publisher->publish(msg);
     }
+
+    /**
+     * * Robot Pose Callback
+    */
+    // void pose_callback()
+    // {
+
+    // }
     
 };
 
