@@ -516,7 +516,7 @@ color: black;
                 </property>
                 <layout class="QFormLayout" name="formLayout">
                  <item row="0" column="0">
-                  <widget class="QPushButton" name="pushButton">
+                  <widget class="QPushButton" name="btn_complete">
                    <property name="sizePolicy">
                     <sizepolicy hsizetype="Minimum" vsizetype="Fixed">
                      <horstretch>0</horstretch>
@@ -806,7 +806,7 @@ color: black;
                 <property name="frameShadow">
                  <enum>QFrame::Raised</enum>
                 </property>
-                <widget class="QPushButton" name="pushButton_2">
+                <widget class="QPushButton" name="btn_signinMain">
                  <property name="geometry">
                   <rect>
                    <x>280</x>

@@ -23,8 +23,14 @@ Tangerine::Tangerine(QWidget *parent) :
   ui->label_introPic->setScaledContents(true);
 
   /**
-   * TODO: clicked button connect (sign in and sign up)
+   * *Buttons Connections
    */
+  
+  connect(ui->btn_signin, &QPushButton::clicked, this, [=]() {ui->stackedWidget->setCurrentIndex(1);});
+  connect(ui->btn_signup, &QPushButton::clicked, this, [=]() {ui->stackedWidget->setCurrentIndex(2);});
+  connect(ui->btn_complete, &QPushButton::clicked, this, [=]() {ui->stackedWidget->setCurrentIndex(0);});
+  connect(ui->btn_signinMain, &QPushButton::clicked, this, [=]() {ui->stackedWidget->setCurrentIndex(3);});
+
 }
 
 
