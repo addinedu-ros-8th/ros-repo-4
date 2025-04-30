@@ -36,8 +36,10 @@ set(UIS
   ui/tangerine.ui
 )
 
+qt5_wrap_ui(UI_HEADERS ${UIS})
+
 # 실행 파일 생성
-add_executable(gui_test
+add_executable(user_gui
   ${SOURCES}
   ${HEADERS}
   ${UIS}
@@ -45,12 +47,12 @@ add_executable(gui_test
 
 # 링크 설정
 target_link_libraries(
-  gui_test
+  user_gui
   Qt5::Widgets
 )
 
 install(TARGETS 
-  gui_test
+  user_gui
   DESTINATION lib/${PROJECT_NAME})
 
 ament_package()
