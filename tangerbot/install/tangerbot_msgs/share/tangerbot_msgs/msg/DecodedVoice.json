@@ -1,0 +1,36 @@
+{
+  "type_description_msg": {
+    "type_description": {
+      "type_name": "tangerbot_msgs/msg/DecodedVoice",
+      "fields": [
+        {
+          "name": "user_id",
+          "type": {
+            "type_id": 17,
+            "capacity": 0,
+            "string_capacity": 0,
+            "nested_type_name": ""
+          },
+          "default_value": ""
+        },
+        {
+          "name": "text",
+          "type": {
+            "type_id": 17,
+            "capacity": 0,
+            "string_capacity": 0,
+            "nested_type_name": ""
+          },
+          "default_value": ""
+        }
+      ]
+    },
+    "referenced_type_descriptions": []
+  },
+  "type_hashes": [
+    {
+      "type_name": "tangerbot_msgs/msg/DecodedVoice",
+      "hash_string": "RIHS01_d5d555a9f6adaa2debbcf9f0a8d2b36047650eef05298614d9376944613f6e1b"
+    }
+  ]
+}
