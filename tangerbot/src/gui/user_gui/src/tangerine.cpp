@@ -11,10 +11,11 @@ Tangerine::Tangerine(QWidget *parent) :
   ui(new Ui::Tangerine)
 {
   ui->setupUi(this);
+
   
-  /**
-   * * Load the main image
-   */
+  /**********************************************
+   * * Load the main image for the intro page
+   **********************************************/
   QString path = QDir::current().absolutePath();
   QString imagePath = path + "/src/gui/user_gui/ui/mainPic.png";
   //qDebug() << "Image Path: " << imagePath;
@@ -22,14 +23,25 @@ Tangerine::Tangerine(QWidget *parent) :
   ui->label_introPic->setPixmap(pixmap);
   ui->label_introPic->setScaledContents(true);
 
-  /**
-   * *Buttons Connections
-   */
-  
+  /**********************************************
+   * * Move the Page with clicking the buttons
+   **********************************************/
   connect(ui->btn_signin, &QPushButton::clicked, this, [=]() {ui->stackedWidget->setCurrentIndex(1);});
   connect(ui->btn_signup, &QPushButton::clicked, this, [=]() {ui->stackedWidget->setCurrentIndex(2);});
   connect(ui->btn_complete, &QPushButton::clicked, this, [=]() {ui->stackedWidget->setCurrentIndex(0);});
   connect(ui->btn_signinMain, &QPushButton::clicked, this, [=]() {ui->stackedWidget->setCurrentIndex(3);});
+
+  /**********************************************
+   * TODO: Connect Database
+   **********************************************/
+
+  /**********************************************
+   * TODO: Save the user data from signup page to database
+   **********************************************/
+
+  /**********************************************
+   * TODO: Check the match data (signin page input) with database
+   **********************************************/
 
 }
 
