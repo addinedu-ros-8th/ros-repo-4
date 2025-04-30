@@ -1,1 +1,1 @@
-ament_lint_auto;ament_lint_common
+rclcpp;rclpy;python3;tangerbot_msgs;ament_lint_auto;ament_lint_common

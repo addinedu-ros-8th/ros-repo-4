@@ -7,9 +7,9 @@
 
 using namespace std::chrono_literals;
 
-class LocalMapPublisher : public rclcpp::Node {
+class Follower : public rclcpp::Node {
 public:
-    LocalMapPublisher() : Node("local_map_publisher") {
+Follower() : Node("person_pose_publisher") {
         publisher_ = this->create_publisher<std_msgs::msg::String>("topic", 10);
         auto timer_callback = 
         [this]()->void {
@@ -27,8 +27,9 @@ private:
 
 int main(int argc, char *argv[]) {
     rclcpp::init(argc, argv);
-    rclcpp::spin(std::make_shared<LocalMapPublisher>());
+    rclcpp::spin(std::make_shared<Follower>());
     rclcpp::shutdown();
 
     return 0;
 }
+
