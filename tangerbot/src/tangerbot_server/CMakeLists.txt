@@ -32,6 +32,11 @@ add_executable(brain
 )
 ament_target_dependencies(brain rclcpp tangerbot_msgs geometry_msgs)
 
+add_executable(bridge
+  src/bridge.cpp
+)
+ament_target_dependencies(bridge rclcpp tangerbot_msgs geometry_msgs)
+
 if(BUILD_TESTING)
   find_package(ament_lint_auto REQUIRED)
   # the following line skips the linter which checks for copyrights
@@ -48,6 +53,7 @@ install(TARGETS
   udp_server
   path_planner
   brain
+  bridge
   DESTINATION lib/${PROJECT_NAME})
 
 ament_package()
