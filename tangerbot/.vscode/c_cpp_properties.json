@@ -1,0 +1,25 @@
+{
+  "configurations": [
+    {
+      "browse": {
+        "databaseFilename": "${default}",
+        "limitSymbolsToIncludedHeaders": false
+      },
+      "includePath": [
+        "/home/jane/project/ros/ros-repo-4/tangerbot/install/tangerbot_msgs/include/**",
+        "/opt/ros/jazzy/include/**",
+        "/home/jane/project/ros/ros-repo-4/tangerbot/src/gui/admin_gui/include/**",
+        "/home/jane/project/ros/ros-repo-4/tangerbot/src/gui/user_gui/include/**",
+        "/home/jane/project/ros/ros-repo-4/tangerbot/src/tangerbot_controller/include/**",
+        "/home/jane/project/ros/ros-repo-4/tangerbot/src/tangerbot_server/include/**",
+        "/usr/include/**"
+      ],
+      "name": "ROS",
+      "intelliSenseMode": "gcc-x64",
+      "compilerPath": "/usr/bin/gcc",
+      "cStandard": "gnu11",
+      "cppStandard": "c++14"
+    }
+  ],
+  "version": 4
+}

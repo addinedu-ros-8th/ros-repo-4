@@ -26,10 +26,24 @@ Tangerine::Tangerine(QWidget *parent) :
   /**********************************************
    * * Move the Page with clicking the buttons
    **********************************************/
-  connect(ui->btn_signin, &QPushButton::clicked, this, [=]() {ui->stackedWidget->setCurrentIndex(1);});
-  connect(ui->btn_signup, &QPushButton::clicked, this, [=]() {ui->stackedWidget->setCurrentIndex(2);});
+  connect(ui->btn_signin, &QPushButton::clicked, this, [=]() {ui->stackedWidget->setCurrentIndex(2);});
+  connect(ui->btn_signup, &QPushButton::clicked, this, [=]() {ui->stackedWidget->setCurrentIndex(1);});
   connect(ui->btn_complete, &QPushButton::clicked, this, [=]() {ui->stackedWidget->setCurrentIndex(0);});
   connect(ui->btn_signinMain, &QPushButton::clicked, this, [=]() {ui->stackedWidget->setCurrentIndex(3);});
+
+  connect(ui->btn_mmain, &QPushButton::clicked, this, [=]() {ui->stackedWidget->setCurrentIndex(3);});
+  connect(ui->btn_rmain, &QPushButton::clicked, this, [=]() {ui->stackedWidget->setCurrentIndex(3);});
+  connect(ui->btn_smain, &QPushButton::clicked, this, [=]() {ui->stackedWidget->setCurrentIndex(3);});
+
+  connect(ui->btn_mrobot, &QPushButton::clicked, this, [=]() {ui->stackedWidget->setCurrentIndex(4);});
+  connect(ui->btn_rrobot, &QPushButton::clicked, this, [=]() {ui->stackedWidget->setCurrentIndex(4);});
+  connect(ui->btn_srobot, &QPushButton::clicked, this, [=]() {ui->stackedWidget->setCurrentIndex(4);});
+
+  connect(ui->btn_msettings, &QPushButton::clicked, this, [=]() {ui->stackedWidget->setCurrentIndex(5);});
+  connect(ui->btn_rsettings, &QPushButton::clicked, this, [=]() {ui->stackedWidget->setCurrentIndex(5);});
+  connect(ui->btn_ssettings, &QPushButton::clicked, this, [=]() {ui->stackedWidget->setCurrentIndex(5);});
+  
+
 
   /**********************************************
    * TODO: Connect Database
@@ -41,6 +55,14 @@ Tangerine::Tangerine(QWidget *parent) :
 
   /**********************************************
    * TODO: Check the match data (signin page input) with database
+   **********************************************/
+
+   /**********************************************
+   * TODO: Update Map (Main page, unclickable, just for monitoring)
+   **********************************************/
+
+   /**********************************************
+   * TODO: Update Map (Robot page, clickable, send goal data)
    **********************************************/
 
 }
