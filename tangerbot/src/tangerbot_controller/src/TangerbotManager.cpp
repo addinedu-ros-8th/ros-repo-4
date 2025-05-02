@@ -59,7 +59,7 @@ public:
         msg.motion_status = tangerbot_msgs::msg::RobotState::STOP;
         msg.battery = battery;
 
-        /* EXAMPLE OF BATTERY SCENARIO */
+        /* ASSUMPTION OF BATTERY SCENARIO */
         msg.main_status = tangerbot_msgs::msg::RobotState::WORKING;  
         msg.motion_status = tangerbot_msgs::msg::RobotState::MOVING;
     
@@ -78,8 +78,6 @@ public:
                 battery = 100.0f;
         }
 
-        
-    
         msg.battery = battery;
     
         RCLCPP_INFO(this->get_logger(), "Publishing Battery: %.2f%%", battery);
