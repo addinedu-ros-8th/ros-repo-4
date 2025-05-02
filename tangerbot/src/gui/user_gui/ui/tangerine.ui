@@ -1057,7 +1057,7 @@ color:black;
                 </property>
                 <layout class="QHBoxLayout" name="horizontalLayout_7">
                  <item>
-                  <widget class="QPushButton" name="pushButton_3">
+                  <widget class="QPushButton" name="btn_mmain">
                    <property name="minimumSize">
                     <size>
                      <width>0</width>
@@ -1077,7 +1077,7 @@ color:black;
                   </widget>
                  </item>
                  <item>
-                  <widget class="QPushButton" name="pushButton_4">
+                  <widget class="QPushButton" name="btn_mrobot">
                    <property name="minimumSize">
                     <size>
                      <width>0</width>
@@ -1097,7 +1097,7 @@ color:black;
                   </widget>
                  </item>
                  <item>
-                  <widget class="QPushButton" name="pushButton_6">
+                  <widget class="QPushButton" name="btn_msettings">
                    <property name="minimumSize">
                     <size>
                      <width>0</width>
@@ -1695,7 +1695,7 @@ color:black;
                 </property>
                 <layout class="QHBoxLayout" name="horizontalLayout_9">
                  <item>
-                  <widget class="QPushButton" name="pushButton_5">
+                  <widget class="QPushButton" name="btn_rmain">
                    <property name="minimumSize">
                     <size>
                      <width>0</width>
@@ -1715,7 +1715,7 @@ color:black;
                   </widget>
                  </item>
                  <item>
-                  <widget class="QPushButton" name="pushButton_7">
+                  <widget class="QPushButton" name="btn_rrobot">
                    <property name="minimumSize">
                     <size>
                      <width>0</width>
@@ -1735,7 +1735,7 @@ color:black;
                   </widget>
                  </item>
                  <item>
-                  <widget class="QPushButton" name="pushButton_8">
+                  <widget class="QPushButton" name="btn_rsettings">
                    <property name="minimumSize">
                     <size>
                      <width>0</width>
@@ -1924,7 +1924,7 @@ color:black;
                  </property>
                  <layout class="QHBoxLayout" name="horizontalLayout_11">
                   <item>
-                   <widget class="QPushButton" name="pushButton_9">
+                   <widget class="QPushButton" name="btn_smain">
                     <property name="minimumSize">
                      <size>
                       <width>0</width>
@@ -1944,7 +1944,7 @@ color:black;
                    </widget>
                   </item>
                   <item>
-                   <widget class="QPushButton" name="pushButton_10">
+                   <widget class="QPushButton" name="btn_srobot">
                     <property name="minimumSize">
                      <size>
                       <width>0</width>
@@ -1964,7 +1964,7 @@ color:black;
                    </widget>
                   </item>
                   <item>
-                   <widget class="QPushButton" name="pushButton_11">
+                   <widget class="QPushButton" name="btn_ssettings">
                     <property name="minimumSize">
                      <size>
                       <width>0</width>
