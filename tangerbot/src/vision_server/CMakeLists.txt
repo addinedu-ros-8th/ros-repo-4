@@ -11,6 +11,7 @@ find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(std_msgs REQUIRED)
 find_package(tangerbot_msgs REQUIRED)
+find_package(rosidl_default_generators REQUIRED)
 
 # Include directories (if needed)
 # include_directories(
@@ -24,6 +25,9 @@ ament_target_dependencies(obstacle_detector rclcpp std_msgs tangerbot_msgs)
 add_executable(follower src/follower.cpp)
 ament_target_dependencies(follower rclcpp std_msgs tangerbot_msgs)
 
+#add_executable(my_server src/gesture_detector.cpp src/another_file.cpp)
+#ament_target_dependencies(my_server rclcpp tangerbot_msgs  # 의존성 추가
+#)
 # Install executable
 install(TARGETS
   obstacle_detector
@@ -33,10 +37,11 @@ install(TARGETS
 
 # For Python 
 install(PROGRAMS
-  scripts/my_python_node.py
+  scripts/gesture_node.py
   DESTINATION lib/${PROJECT_NAME}
 )
 
+ament_export_dependencies(rosidl_default_runtime)
 # ament package macros
 ament_package()
 
