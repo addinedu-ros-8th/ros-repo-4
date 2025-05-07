@@ -1,2 +1,0 @@
-string robot_id
-geometry_msgs/Point point

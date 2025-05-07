@@ -13,13 +13,13 @@ find_package(ament_cmake REQUIRED)
 find_package(geometry_msgs REQUIRED)
 find_package(std_msgs REQUIRED)
 find_package(rosidl_default_generators REQUIRED)
+#find_package(tangerbot_msgs REQUIRED)
 
 rosidl_generate_interfaces(${PROJECT_NAME}
   "msg/RobotState.msg"
   "msg/RobotPose.msg"
   "msg/DecodedVoice.msg"
   "msg/PersonPose.msg"
-  "msg/Gesture.msg"
   "msg/LocalMap.msg"
   "srv/HandleCommand.srv"
   "srv/SetFollowMode.srv"
@@ -42,6 +42,10 @@ if(BUILD_TESTING)
   # a copyright and license is added to all source files
   set(ament_cmake_cpplint_FOUND TRUE)
   ament_lint_auto_find_test_dependencies()
+
 endif()
+
+  # Export runtime dependencies
+ament_export_dependencies(rosidl_default_runtime)
 
 ament_package()
