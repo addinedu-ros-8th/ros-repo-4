@@ -42,15 +42,14 @@ public:
     /************************************************
      * * Robot State (Working, Idle)
     ************************************************/
-    void setStatus(int status)
-    {
+    void setStatus(int status){
         main_status = status;
     }
 
     /***********************************************
      * * callbacks function
-     * * 1. Robot State
-     * * 2. Robot Pose
+     * * 1. void state_callbacks() //Robot State
+     * * 2. void pose_callbacks() //Robot Pose
     ************************************************/
     void state_callbacks() {
         auto msg = tangerbot_msgs::msg::RobotState();
