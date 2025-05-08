@@ -7,7 +7,7 @@
 using PathPlanning = tangerbot_msgs::srv::PathPlanning;
 
 /**********************************************
- * * Constructor <PathPlanner>
+ * * Constructor
  **********************************************/
 
 PathPlanner::PathPlanner() : rclcpp::Node("path_planner") {
@@ -24,39 +24,51 @@ PathPlanner::PathPlanner() : rclcpp::Node("path_planner") {
 void PathPlanner::path_planning_callback(const std::shared_ptr<PathPlanning::Request> request,
                                     std::shared_ptr<PathPlanning::Response> response)
 {   
-    RCLCPP_INFO(this->get_logger(), "Path Planning!");
-
-    /******************************************************************************************
-     * * Populating Robot ID List
-     * @brief Assigns a robot ID to the response based on the request
-    ******************************************************************************************/
-    std::vector<std::string> robotIDList; 
-    if (!request->robot_id.empty()) {
-        robotIDList.push_back(request->robot_id);
+    if (request->robot_id.empty()) {
+        RCLCPP_ERROR(this->get_logger(), "No robot IDs provided");
+        return;
     }
-    //robotIDList.push_back("robot1"); //debug
-    response->robot_id = robotIDList;
+    if (request->end.empty()) {
+        RCLCPP_ERROR(this->get_logger(), "No end conditions provided");
+        return;
+    }
 
-
+    response->results.clear();
     /******************************************************************************************
-     * * Populating Waypoints List
-     * @brief Provides a list of waypoints for the robot to navigate
+     * * Populating Results
+     * * Robot ID / Waypoints / Distances
+     * @brief Handle multiple robots' path planning requests
+     * @param request->robot_id
+     * @param request->end
+     * @param response->results
     ******************************************************************************************/
-    auto waypoint = geometry_msgs::msg::Point();
-    waypoint.x = 0.1;
-    waypoint.y = 0.2;
-    std::vector<geometry_msgs::msg::Point> waypoints;
-    waypoints.push_back(waypoint);
-    response->waypoints = waypoints;
+    for (size_t i = 0; i < request->robot_id.size(); ++i) {
+        
+        /**************************************
+        * * ROBOT ID 
+        **************************************/
+        RCLCPP_INFO(this->get_logger(), "Planning for robot %s with end condition %d",
+                    request->robot_id[i].c_str(), request->end[i]);
+        
+        tangerbot_msgs::msg::PathResult result;
+        result.robot_id = request->robot_id[i];
 
+    
+        /**************************************
+        * * SETUP GOAL  
+        * @bug: This is a placeholder for the actual goal setup
+        **************************************/
+        geometry_msgs::msg::Point waypoint;
+        waypoint.x = 0.1 * (i + 1); 
+        waypoint.y = 0.2 * (i + 1);
+        waypoint.z = 0.0;
+        result.waypoints.push_back(waypoint);
+        result.distances.push_back(0.1 * (i + 1));
 
-    /****************************************************************************************** 
-     * * Populating Distance List
-     * @brief Provides a list of distances associated with the waypoints (meter).
-    ******************************************************************************************/
-    std::vector<float> distance_list;
-    distance_list.push_back(0.1);
-    response->distance = distance_list;
+        response->results.push_back(result);
+    }    
+
+    RCLCPP_INFO(this->get_logger(), "Path computed with %zu waypoints", response->results.size());
 }
 
 /**********************************************
