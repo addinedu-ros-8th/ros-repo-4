@@ -31,7 +31,10 @@ void PathPlanner::path_planning_callback(const std::shared_ptr<PathPlanning::Req
      * @brief Assigns a robot ID to the response based on the request
     ******************************************************************************************/
     std::vector<std::string> robotIDList; 
-    robotIDList.push_back("robot1"); //TODO: (using database)
+    if (!request->robot_id.empty()) {
+        robotIDList.push_back(request->robot_id);
+    }
+    //robotIDList.push_back("robot1"); //debug
     response->robot_id = robotIDList;
 
 
