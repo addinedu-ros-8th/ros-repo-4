@@ -8,5 +8,13 @@
         "/home/jane/project/ros/ros-repo-4/tangerbot/install/tangerbot_msgs/lib/python3.12/site-packages",
         "/home/jane/project/ros/ros-repo-4/tangerbot/install/llm_server/lib/python3.12/site-packages",
         "/opt/ros/jazzy/lib/python3.12/site-packages"
-    ]
+    ],
+    "files.associations": {
+        "deque": "cpp",
+        "string": "cpp",
+        "vector": "cpp",
+        "rope": "cpp",
+        "__split_buffer": "cpp",
+        "list": "cpp"
+    }
 }
