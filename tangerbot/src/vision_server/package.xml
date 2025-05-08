@@ -1,0 +1,31 @@
+<?xml version="1.0"?>
+<package format="3">
+  <name>vision_server</name>
+  <version>0.0.0</version>
+  <description>Vision server package (shared memory + OpenCV + ROS2)</description>
+  <maintainer email="mu@todo.todo">mu</maintainer>
+  <license>Apache-2.0</license>
+
+  <buildtool_depend>ament_cmake</buildtool_depend>
+
+  <depend>rclcpp</depend>
+  <depend>std_msgs</depend>
+  <depend>tangerbot_msgs</depend>
+
+  <!-- OpenCV system 라이브러리 -->
+  <build_depend>opencv4</build_depend>
+  <exec_depend>opencv4</exec_depend>
+
+  <build_depend>ament_index_cpp</build_depend>
+  <exec_depend>ament_index_cpp</exec_depend>
+
+  <exec_depend>rclpy</exec_depend>
+  <exec_depend>python3</exec_depend>
+
+  <test_depend>ament_lint_auto</test_depend>
+  <test_depend>ament_lint_common</test_depend>
+
+  <export>
+    <build_type>ament_cmake</build_type>
+  </export>
+</package>
