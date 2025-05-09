@@ -4,10 +4,17 @@
   <name>user_gui</name>
   <version>0.0.0</version>
   <description>TODO: Package description</description>
-  <maintainer email="taemin5315@gmail.com">tm</maintainer>
+  <maintainer email="janeuarykim@gmail.com">jane</maintainer>
   <license>TODO: License declaration</license>
 
   <buildtool_depend>ament_cmake</buildtool_depend>
+
+  <depend>rclcpp</depend>
+  <depend>rviz2</depend>
+  <depend>rviz_common</depend>
+  <depend>rviz_default_plugins</depend>
+  <depend>geometry_msgs</depend>
+  <depend>nav_msgs</depend>
 
   <test_depend>ament_lint_auto</test_depend>
   <test_depend>ament_lint_common</test_depend>
