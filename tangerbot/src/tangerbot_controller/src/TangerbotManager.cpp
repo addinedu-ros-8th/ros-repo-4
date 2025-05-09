@@ -7,6 +7,7 @@ using std::string;
 #include "rclcpp/rclcpp.hpp"
 #include "tangerbot_msgs/msg/robot_state.hpp"
 #include "tangerbot_msgs/msg/robot_pose.hpp"
+#include "geometry_msgs/msg/pose_stamped.hpp"
 using namespace std::chrono_literals;
 
 
@@ -18,33 +19,56 @@ private:
     int motion_status;
     float battery=100.0f;
 
-    rclcpp::Publisher<tangerbot_msgs::msg::RobotState>::SharedPtr publisher;
+    rclcpp::Publisher<tangerbot_msgs::msg::RobotState>::SharedPtr state_publisher;
     rclcpp::Subscription<tangerbot_msgs::msg::RobotPose>::SharedPtr subscriber;
     rclcpp::TimerBase::SharedPtr timer_;
+    geometry_msgs::msg::PoseStamped current_pose;
+    geometry_msgs::msg::PoseStamped goal_pose;
+
 
 public:
+    /* CONSTRUCTOR */
     TangerbotManager() : Node("tangerbot_manager")
     {
+        /************************************************
+         * * initialization
+        ************************************************/
+       `this->main_status = tangerbot_msgs::msg::RobotState::IDLE;
+        this->goal_pose = None;
+
         /************************************************
          * * publisher list
          * * 1. Robot State (state, motion, battery)
         ************************************************/
-        publisher = this->create_publisher<tangerbot_msgs::msg::RobotState>("robot_state", 10); 
+        state_publisher = this->create_publisher<tangerbot_msgs::msg::RobotState>("robot_state", 10); 
+        cmd_vel_publisher = this->create_publisher<geometry_msgs::msg::Twist>("cmd_vel", 10);
         timer_ = this->create_wall_timer(500ms, std::bind(&TangerbotManager::state_callbacks, this));
         
         /************************************************
          * * subscriber list
          * * 1. Robot Pose
-         * * 2. Person Pose
+         * * 2. Goal Pose
+         * * 3. Person Pose
         ************************************************/
+        pose_subscriber = this->create_subscription<tangerbot_msgs::msg::RobotPose>(
+            "robot_pose", 10, std::bind(&TangerbotManager::pose_callbacks, this, std::placeholders::_1));
+        goal_pose_subscriber = this->create_subscription<tangerbot_msgs::msg::RobotPose>(
+            "goal_pose", 10, std::bind(&TangerbotManager::goal_pose_callback, this, std::placeholders::_1));
+        person_pose_subscriber = this->create_subscription<tangerbot_msgs::msg::RobotPose>(
+            "person_pose", 10, std::bind(&TangerbotManager::person_pose_callback, this, std::placeholders::_1));
+        
+
     }
 
-    /************************************************
-     * * Robot State (Working, Idle)
-    ************************************************/
-    void setStatus(int status){
-        main_status = status;
+    void set_state(int state){
+        msg = tangerbot_msgs::msg::RobotState();
+        msg.robot_id = robot_id;
+        msg.main_status = state;
+        
+        state_publisher->publish(msg);
     }
+
+
 
     /***********************************************
      * * callbacks function
