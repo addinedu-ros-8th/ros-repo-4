@@ -18,7 +18,6 @@ namespace Ui {
 
 class Tangerine : public QMainWindow
 {
-
     Q_OBJECT
 
 public:
