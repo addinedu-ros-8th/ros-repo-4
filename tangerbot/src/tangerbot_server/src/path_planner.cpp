@@ -56,7 +56,7 @@ void PathPlanner::path_planning_callback(const std::shared_ptr<PathPlanning::Req
     
         /**************************************
         * * SETUP GOAL  
-        * @bug: This is a placeholder for the actual goal setup
+        * This is a placeholder for the actual goal setup
         **************************************/
         geometry_msgs::msg::Point waypoint;
         waypoint.x = 0.1 * (i + 1); 
