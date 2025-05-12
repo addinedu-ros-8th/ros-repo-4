@@ -1,99 +1,107 @@
 import rclpy
 from rclpy.node import Node
-from std_msgs.msg import UInt8MultiArray, String  # 변경된 메시지 타입
+from std_msgs.msg import String
 import whisper
-import io
-import wave
-import numpy as np
-import librosa
-from tangerbot_msgs.msg import DecodedVoice
+import os
 
-# Whisper 모델 로딩 (최초 1회)
+# Whisper 모델 불러오기
 whisper_model = whisper.load_model("base")
 
 class AudioToTextNode(Node):
     def __init__(self):
         super().__init__('audio_to_text_node')
-
-        # 음성 스트림 수신 토픽
+        
+        # 음성 명령을 받는 토픽 생성
         self.subscription = self.create_subscription(
-            UInt8MultiArray,  # 🔄 변경
-            'voice_command/audio_stream',
+            String,
+            'audio_from_robot',  # 로봇에서 전송한 음성 데이터 받는 토픽
             self.audio_callback,
             10
         )
         
-        # 텍스트 전송 퍼블리셔
-        self.text_publisher = self.create_publisher(DecodedVoice, '/decoded_voice', 10)
+        # 변환된 텍스트를 tangerbot_server로 전송할 퍼블리셔 생성
+        self.text_publisher = self.create_publisher(String, 'processed_text', 10)
 
     def audio_callback(self, msg):
+        # 로봇에서 전송된 음성 데이터 경로를 받음 (예시: 파일 경로)
+        audio_path = msg.data
+        self.get_logger().info(f"🎧 받은 음성 파일 경로: {audio_path}")
+
+        # Whisper를 사용하여 음성을 텍스트로 변환
+        recognized_text = self.transcribe_audio(audio_path)
+        
+        if recognized_text:
+            self.get_logger().info(f"📝 변환된 텍스트: {recognized_text}")
+            self.send_text_to_server(recognized_text)
+
+    def transcribe_audio(self, audio_path):
         try:
-            self.get_logger().info("🎧 오디오 바이트 수신")
-
-            # UInt8MultiArray -> BytesIO
-            audio_bytes = bytes(msg.data)
-            wav_io = io.BytesIO(audio_bytes)
-
-            # Whisper를 사용하여 음성 텍스트 변환
-            recognized_text = self.transcribe_audio(wav_io)
-
-            if recognized_text:
-                self.get_logger().info(f"📝 변환된 텍스트: {recognized_text}")
-                self.send_text_to_server(recognized_text)
-            else:
-                self.get_logger().warn("❌ 텍스트 변환 실패 또는 음성 없음")
-
+            # Whisper로 음성 파일을 텍스트로 변환
+            result = whisper_model.transcribe(audio_path, language='ko')
+            recognized_text = result['text']
+            return recognized_text
         except Exception as e:
-            self.get_logger().error(f"🚨 처리 중 오류: {e}")
-
-
-    def transcribe_audio(self, wav_io):
-        try:
-            # WAV 파일에서 데이터 추출
-            with wave.open(wav_io, 'rb') as wf:
-                sample_width = wf.getsampwidth()
-                sample_rate = wf.getframerate()
-                n_channels = wf.getnchannels()
-                n_frames = wf.getnframes()
-                audio_frames = wf.readframes(n_frames)
-
-            # 16-bit PCM 기준 numpy 배열 변환
-            audio_np = np.frombuffer(audio_frames, dtype=np.int16).astype(np.float32) / 32768.0  # Normalize to [-1.0, 1.0]
-
-            # Whisper가 mono 16kHz를 요구함
-            if n_channels > 1:
-                audio_np = audio_np[::n_channels]  # 간단한 채널 압축 (왼쪽 채널만 사용)
-
-            if sample_rate != 16000:
-                self.get_logger().warn(f"⚠️ 샘플레이트 {sample_rate} -> 16000 변환 필요")
-                
-                audio_np = librosa.resample(audio_np, orig_sr=sample_rate, target_sr=16000)
-
-            # Whisper 입력 준비
-            audio_padded = whisper.pad_or_trim(audio_np)
-            mel = whisper.log_mel_spectrogram(audio_padded).to(whisper_model.device)
-
-            # 텍스트 추출
-            result = whisper_model.decode(mel)
-            return result.text
-
-        except Exception as e:
-            self.get_logger().error(f"❌ Whisper 변환 실패: {e}")
+            self.get_logger().error(f"❌ 음성 인식 실패: {e}")
             return None
 
     def send_text_to_server(self, text):
-        msg = DecodedVoice()
-        msg.text = text
+        # 텍스트를 tangerbot_server로 전송
+        msg = String()
+        msg.data = text
         self.text_publisher.publish(msg)
-        self.get_logger().info(f"📤 텍스트 전송 완료: {text}")
+        self.get_logger().info(f"✅ 텍스트를 tangerbot_server로 전송: {text}")
 
 
 def main(args=None):
     rclpy.init(args=args)
-    node = AudioToTextNode()
-    rclpy.spin(node)
-    node.destroy_node()
+
+    # AudioToTextNode 생성
+    audio_to_text_node = AudioToTextNode()
+
+    # ROS 2 이벤트 루프 실행
+    rclpy.spin(audio_to_text_node)
+
+    # 종료 시 노드 파괴
+    audio_to_text_node.destroy_node()
     rclpy.shutdown()
+
 
 if __name__ == '__main__':
     main()
+    
+
+
+
+'''import rclpy
+from rclpy.node import Node
+from std_msgs.msg import String
+
+class TangerbotServer(Node):
+    def __init__(self):
+        super().__init__('tangerbot_server')
+        
+        # 'processed_text' 토픽을 구독하여 텍스트 메시지 처리
+        self.subscription = self.create_subscription(
+            String,
+            'processed_text',  # 'audio_to_text_node'에서 보낸 텍스트를 받는 토픽
+            self.process_text_callback,
+            10
+        )
+
+    def process_text_callback(self, msg):
+        text = msg.data
+        self.get_logger().info(f"받은 텍스트: {text}")
+        # 여기서 텍스트를 처리하고 로봇의 동작이나 명령을 실행하는 로직 추가
+
+def main(args=None):
+    rclpy.init(args=args)
+
+    tangerbot_server_node = TangerbotServer()
+
+    rclpy.spin(tangerbot_server_node)
+
+    tangerbot_server_node.destroy_node()
+    rclpy.shutdown()
+
+if __name__ == '__main__':
+    main()'''

@@ -10,24 +10,22 @@ find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(tangerbot_msgs REQUIRED)
 
-add_executable(tangerbot_manager src/tangerbot_manager.cpp)
-ament_target_dependencies(tangerbot_manager
+add_executable(TangerbotManager src/TangerbotManager.cpp)
+ament_target_dependencies(TangerbotManager
   rclcpp
   tangerbot_msgs
 )
-target_include_directories(tangerbot_manager PUBLIC
+target_include_directories(TangerbotManager PUBLIC
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
   $<INSTALL_INTERFACE:include/${PROJECT_NAME}>)
-target_compile_features(tangerbot_manager PUBLIC c_std_99 cxx_std_17) 
+target_compile_features(TangerbotManager PUBLIC c_std_99 cxx_std_17) 
 
 install(TARGETS 
-  tangerbot_manager
+  TangerbotManager
   DESTINATION lib/${PROJECT_NAME})
 
 install(PROGRAMS
   scripts/WakeWordListener.py
-  scripts/emotion.py
-  scripts/pinky_lcd.py
   DESTINATION lib/${PROJECT_NAME}
 )
 

@@ -1,4 +1,0 @@
-<launch>
-  <node pkg="aruco_package" exec="my_tf"/>
-  <node pkg="aruco_package" exec="broadcaster"/>
-</launch>

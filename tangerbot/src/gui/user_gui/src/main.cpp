@@ -4,11 +4,8 @@
 
 int main(int argc, char *argv[])
 {
-    rclcpp::init(argc, argv);
-    QApplication app(argc, argv);
-    Tangerine window;
-    window.show();
-    app.exec();
-    rclcpp::shutdown();
-    return 0;
+  QApplication app(argc, argv);
+  Tangerine window;
+  window.show();
+  return app.exec();
 }

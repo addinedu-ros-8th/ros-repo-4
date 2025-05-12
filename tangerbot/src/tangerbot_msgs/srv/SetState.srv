@@ -3,7 +3,6 @@ uint8 main_status
 uint8 motion_status
 ---
 bool success
-string error_msg
 
 # main_status constants
 uint8 IDLE=0

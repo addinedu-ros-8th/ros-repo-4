@@ -1,4 +1,6 @@
 string[] robot_id
 int8[] end
 ---
-PathResult[] results
+string[] robot_id
+geometry_msgs/Point[] waypoints
+float32[] distance
