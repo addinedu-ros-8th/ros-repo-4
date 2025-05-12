@@ -1,35 +1,58 @@
 #include <chrono>
 #include <memory>
+#include <vector>
 #include <string>
+#include <limits>
+#include <csignal>
+#include <iostream>
 
 #include "rclcpp/rclcpp.hpp"
-#include "std_msgs/msg/string.hpp"
+#include "tangerbot_msgs/msg/local_map.hpp"
+
+#include <opencv2/core.hpp>
+#include <opencv2/imgproc.hpp>
+#include <opencv2/highgui.hpp>
+#include <opencv2/calib3d.hpp>
+#include <opencv2/cudaimgproc.hpp>
+#include <opencv2/ximgproc.hpp>
+
+#include <cuda_runtime.h>
+#include <libsgm.h>
+#include "vision_server/sample_common.h"			
+#include "vision_server/shared_memory.hpp"		
+//#include "ament_index_cpp/get_package_share_directory.hpp"
+
+// Camera 
+struct CameraParameters {
+	float fu; float fv;
+	float u0; float v0;
+	float baseline;
+	float height;
+	float tilt;
+};
 
 using namespace std::chrono_literals;
+using namespace shm;
+using namespace std;
 
 class Follower : public rclcpp::Node {
 public:
-Follower() : Node("person_pose_publisher") {
-        publisher_ = this->create_publisher<std_msgs::msg::String>("topic", 10);
-        auto timer_callback = 
-        [this]()->void {
-            auto message = std_msgs::msg::String();
-            message.data = "Hello world!";
-            RCLCPP_INFO(this->get_logger(), "Publishing: '%s'", message.data.c_str());
-            this->publisher_->publish(message);
-        };
-        timer_ = this->create_wall_timer(500ms, timer_callback);
-    }
-private:
-    rclcpp::TimerBase::SharedPtr timer_;
-    rclcpp::Publisher<std_msgs::msg::String>::SharedPtr publisher_;
+	Follower() :Node("follower_node") {
+		cout << "Hi" << '\n';
+	}
+//private:
 };
 
-int main(int argc, char *argv[]) {
-    rclcpp::init(argc, argv);
-    rclcpp::spin(std::make_shared<Follower>());
-    rclcpp::shutdown();
-
-    return 0;
+// main
+int main(int argc, char** argv) {
+	rclcpp::init(argc, argv);
+	try {
+		auto node = std::make_shared<Follower>();
+		rclcpp::spin(node);
+	} catch (const std::exception& e) {
+		std::cerr << "Fatal: " << e.what() << std::endl;
+	}
+	rclcpp::shutdown();
+	return 0;
 }
 

@@ -1,5 +1,0 @@
-string robot_id # if robot
-string user_id # if user gui
-std_msgs/ByteMultiArray data
----
-bool success
