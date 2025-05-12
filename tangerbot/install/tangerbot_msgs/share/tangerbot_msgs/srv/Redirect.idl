@@ -1,0 +1,15 @@
+// generated from rosidl_adapter/resource/srv.idl.em
+// with input from tangerbot_msgs/srv/Redirect.srv
+// generated code does not contain a copyright notice
+
+
+module tangerbot_msgs {
+  module srv {
+    struct Redirect_Request {
+      string robot_id;
+    };
+    struct Redirect_Response {
+      boolean success;
+    };
+  };
+};

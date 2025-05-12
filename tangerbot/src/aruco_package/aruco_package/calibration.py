@@ -72,10 +72,10 @@ class Calibration():
             
             if ids is not None and len(corners) > 0:
                 ids = [ids[i][0] for i in range(len(ids))]
-                if 0 not in ids:
+                if 1 not in ids:
                     continue
                 
-                base_id_index = ids.index(0)
+                base_id_index = ids.index(1)
                 
                 rvec, tvec, _ = cv2.aruco.estimatePoseSingleMarkers(
                     corners[base_id_index], self.marker_length, self.matrix_coefficients, self.distortion_coefficients
