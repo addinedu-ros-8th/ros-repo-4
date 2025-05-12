@@ -1,0 +1,17 @@
+// generated from rosidl_adapter/resource/srv.idl.em
+// with input from pinky_interfaces/srv/Emotion.srv
+// generated code does not contain a copyright notice
+
+
+module pinky_interfaces {
+  module srv {
+    struct Emotion_Request {
+      @verbatim (language="comment", text=
+        "Emotion input (e.g., \"hello\", \"basic\", \"angry\", \"bored\", \"fun\", \"happy\", \"interest\", \"sad\")")
+      string emotion;
+    };
+    struct Emotion_Response {
+      string response;
+    };
+  };
+};
