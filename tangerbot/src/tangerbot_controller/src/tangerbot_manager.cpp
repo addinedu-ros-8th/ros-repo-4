@@ -60,6 +60,7 @@ public:
         person_pose_subscriber = this->create_subscription<tangerbot_msgs::msg::RobotPose>(
             "person_pose", 10, std::bind(&TangerbotManager::person_pose_callbacks, this, std::placeholders::_1));
         
+        // Initialize the robot ID
 
     }
     //TODO (revise parameter?)
