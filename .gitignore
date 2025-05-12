@@ -1,15 +1,3 @@
-# ROS 2 build artifacts
-tangerbot/build/
-tangerbot/install/
-tangerbot/log/
-
-# DL model
-tangerbot/yolov8l-seg.pt
-
-# IDE and editor files
-.vscode/
-tangerbot/.vscode
-
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]

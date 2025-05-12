@@ -12,7 +12,6 @@ find_package(ament_cmake REQUIRED)
 # find_package(<dependency> REQUIRED)
 find_package(geometry_msgs REQUIRED)
 find_package(std_msgs REQUIRED)
-find_package(nav_msgs REQUIRED)
 find_package(rosidl_default_generators REQUIRED)
 
 rosidl_generate_interfaces(${PROJECT_NAME}
@@ -21,9 +20,6 @@ rosidl_generate_interfaces(${PROJECT_NAME}
   "msg/DecodedVoice.msg"
   "msg/PersonPose.msg"
   "msg/Gesture.msg"
-  "msg/NavGoal.msg"
-  "msg/PathResult.msg"
-  "msg/LocalMap.msg"
   "srv/HandleCommand.srv"
   "srv/SetFollowMode.srv"
   "srv/PathPlanning.srv"
@@ -32,8 +28,8 @@ rosidl_generate_interfaces(${PROJECT_NAME}
   "srv/SetState.srv"
   "srv/Redirect.srv"
   "srv/GetWorkload.srv"
-  "action/PathPlanning.action"
-  DEPENDENCIES geometry_msgs std_msgs nav_msgs # Add packages that above messages depend on, in this case geometry_msgs for Sphere.msg
+  "action/NavigateToPose.action"
+  DEPENDENCIES geometry_msgs std_msgs # Add packages that above messages depend on, in this case geometry_msgs for Sphere.msg
 )
 if(BUILD_TESTING)
   find_package(ament_lint_auto REQUIRED)

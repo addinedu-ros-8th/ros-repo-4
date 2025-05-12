@@ -154,11 +154,9 @@ private:
 				  << "  baseline=" << cam_param_.baseline << " m\n";
 	}
 
-	/*
 	// initSGM
 	void initSGM() {
 		constexpr int DISP = 128;			// disparity size
-		//constexpr int DISP = 256;
 		constexpr int SRC_DEPTH = 8;		// input 8 bit
 		constexpr int DST_DEPTH = 8;		// output 8 bit
 
@@ -179,42 +177,6 @@ private:
 
 		invalid_disp_ = sgm_->get_invalid_disparity();
 	}
-	*/
-
-
-	void initSGM() {
-	    const int disp_size = 256;
-	    const int src_depth = 8;
-	    const int dst_depth = disp_size < 256 ? 8 : 16;
-	    const int width = cam_size_.width;
-	    const int height = cam_size_.height;
-
-	    sgm::StereoSGM::Parameters params;
-	    params.P1 = 35;
-	    params.P2 = 110;
-	    params.uniqueness = 0.90f;
-	    params.LR_max_diff = 1;
-	    params.census_type = sgm::CensusType::SYMMETRIC_CENSUS_9x7;
-
-	    sgm_ = std::make_unique<sgm::StereoSGM>(
-	        width, height,
-	        disp_size, src_depth, dst_depth,
-	        sgm::EXECUTE_INOUT_CUDA2CUDA,
-	        params
-	    );
-
-	    int src_bytes = src_depth * width * height / 8;
-	    int dst_bytes = dst_depth * width * height / 8;
-
-	    d_left_ = std::make_unique<device_buffer>(src_bytes);
-	    d_right_ = std::make_unique<device_buffer>(src_bytes);
-	    d_disp_ = std::make_unique<device_buffer>(dst_bytes);
-
-	    disp_ = cv::Mat(cam_size_, dst_depth == 16 ? CV_16U : CV_8U);
-	    disp_color_ = cv::Mat(cam_size_, CV_8UC3);
-
-	    invalid_disp_ = sgm_->get_invalid_disparity();
-	}
 
 	// Shared Memory JPEG 읽기 -> GRAY 
 	bool readSharedGray(int cam_idx, cv::Mat& gray) {
@@ -226,7 +188,7 @@ private:
 		cv::Mat img = cv::imdecode(buf, cv::IMREAD_GRAYSCALE);
 		if (img.empty()) return false;
 
-		cv::resize(img, gray, cam_size_);	
+		cv::resize(img, gray, cam_size_);			// 안전: 크기 고정
 		return true;
 	}
 
@@ -253,14 +215,14 @@ private:
 		// 4) Download disparity (CV_8U)
 		d_disp_->download(disp_.data);
 
-		// 5) Speckle 제거
-		//cv::filterSpeckles(disp_, invalid_disp_, 200, 1.0);
+		// 5) CUDA Bilateral Filter
+		cv::cuda::GpuMat g_disp(disp_);
+		cv::cuda::GpuMat g_filt;
+		cv::cuda::bilateralFilter(g_disp, g_filt, 5, 50.0, 50.0);
+		g_filt.download(disp_);
 
-		// 6) CUDA Bilateral Filter
-		//cv::cuda::GpuMat g_disp(disp_);
-		//cv::cuda::GpuMat g_filt;
-		//cv::cuda::bilateralFilter(g_disp, g_filt, 5, 50.0, 50.0);
-		//g_filt.download(disp_);
+		// 6) Speckle 제거
+		cv::filterSpeckles(disp_, invalid_disp_, 200, 1.0);
 
 		// 7) disparity → float32
 		disp_.convertTo(disp32_, CV_32F, 1.0);
@@ -289,7 +251,7 @@ private:
 		colorize_disparity(disp_, disp_color_, 128, disp_ == invalid_disp_);
 		cv::putText(disp_color_,
 			cv::format("SGM %.1f ms  FPS %.1f", exec_ms, 1000.0/exec_ms),
-			{30,30}, cv::FONT_HERSHEY_SIMPLEX, 0.7, {255, 255, 255}, 1);
+			{30,30}, cv::FONT_HERSHEY_SIMPLEX, 0.7, {255,255,255}, 1);
 
 		cv::Mat td_img;
 		tdv_->draw(td_img);
