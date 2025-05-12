@@ -12,9 +12,11 @@ find_package(std_msgs REQUIRED)
 find_package(OpenCV REQUIRED)
 find_package(tangerbot_msgs REQUIRED)
 find_package(ament_index_cpp REQUIRED)
+
 # ----------- libSGM + CUDA 관련 분기 ----------
 if(USE_LIBSGM)
-  message(STATUS ":흰색_확인_표시: libSGM + CUDA 빌드 활성화됨")
+  message(STATUS "✅ libSGM + CUDA 빌드 활성화됨")
+
   # CUDA 설정
   set(CUDA_TOOLKIT_ROOT_DIR "/usr/local/cuda")
   set(CUDA_INCLUDE_DIRS "${CUDA_TOOLKIT_ROOT_DIR}/include")
@@ -39,6 +41,7 @@ if(USE_LIBSGM)
   target_link_libraries(sample_common PUBLIC
     ${OpenCV_LIBS}
   )
+
   # follower 노드
   add_executable(follower src/follower.cpp)
   ament_target_dependencies(follower
