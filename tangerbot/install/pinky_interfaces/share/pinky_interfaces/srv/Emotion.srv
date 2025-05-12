@@ -1,3 +1,0 @@
-string emotion  # Emotion input (e.g., "hello", "basic", "angry", "bored", "fun", "happy", "interest", "sad")
----
-string response
