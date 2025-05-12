@@ -3,6 +3,9 @@ tangerbot/build/
 tangerbot/install/
 tangerbot/log/
 
+# DL model
+tangerbot/yolov8l-seg.pt/
+
 # IDE and editor files
 .vscode/
 tangerbot/.vscode
