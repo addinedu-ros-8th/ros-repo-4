@@ -16,6 +16,7 @@ class Brain : public rclcpp::Node {
     using PathPlanning = tangerbot_msgs::srv::PathPlanning;
     using GetWorkload = tangerbot_msgs::srv::GetWorkload;
     using SetFollowMode = tangerbot_msgs::srv::SetFollowMode;
+    using SetState = tangerbot_msgs::srv::SetState;
     using Redirect = tangerbot_msgs::srv::Redirect;
     using RobotState = tangerbot_msgs::msg::RobotState;
 
@@ -28,6 +29,7 @@ private:
     rclcpp::Client<PathPlanning>::SharedPtr path_planning_client;
     rclcpp::Client<GetWorkload>::SharedPtr get_workload_client;
     rclcpp::Client<SetFollowMode>::SharedPtr set_follow_mode_client;
+    rclcpp::Client<SetState>::SharedPtr set_state_client_;
     rclcpp::Client<Redirect>::SharedPtr redirect_client;
     rclcpp::Subscription<RobotState>::SharedPtr robot_state_subscriber;
     
@@ -35,7 +37,6 @@ private:
                                 std::shared_ptr<HandleCommand::Response> response);
 
     void robot_state_callback(const tangerbot_msgs::msg::RobotState::SharedPtr msg);
-    tangerbot_msgs::msg::RobotState robot_state_;
 };
 
 #endif // TANGERBOT_SERVER_BRAIN_H
