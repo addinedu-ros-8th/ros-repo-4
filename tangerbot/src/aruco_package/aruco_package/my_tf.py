@@ -3,6 +3,7 @@ from rclpy.node import Node
 
 from geometry_msgs.msg import TransformStamped
 from geometry_msgs.msg import PoseWithCovarianceStamped
+from geometry_msgs.msg import PoseStamped
 import tf2_ros
 import math
 import numpy as np
@@ -52,6 +53,7 @@ class MyTfBroadcaster(Node):
         super().__init__("my_tf_broadcaster")
         
         self.br = tf2_ros.TransformBroadcaster(self)
+        self.tracked_pose_pub = self.create_publisher(PoseStamped, "tracked_pose", 10)
         
         self.timer = self.create_timer(0.05, self.timer_callback)
         self.t = 0.0
@@ -75,20 +77,6 @@ class MyTfBroadcaster(Node):
         
         self.robot_status_sub = self.create_subscription(Bool, "/robot_status", self.robot_status_callback, 10)
         self.robot_status = None
-        # 1. 데이터 불러오기 및 정규화
-        pkg_path = get_package_share_directory('aruco_package')
-        df = pd.read_excel(pkg_path + "/Book1.xlsx")
-        X = df[['tf_x', 'tf_y']].values
-        Y = df[['real_x', 'real_y']].values
-
-        self.scaler_X = MinMaxScaler().fit(X)
-        self.scaler_Y = MinMaxScaler().fit(Y)
-        X_scaled = self.scaler_X.transform(X)
-        Y_scaled = self.scaler_Y.transform(Y)
-
-        # 2. 머신러닝 모델 정의 및 학습 (원하는 모델 선택)
-        self.model = KNeighborsRegressor(n_neighbors = 5)
-        self.model.fit(X_scaled, Y_scaled)
         
         self.kf = YawKalmanFilter(process_noise=0.001, measurement_noise=0.05, initial_estimate=0.0)
         
@@ -215,8 +203,6 @@ class MyTfBroadcaster(Node):
                 
                 quat = tf_transformations.quaternion_from_matrix(T_map_marker)
                 
-                calibrated_translation = self.predict(t_map_marker[0] * 100, t_map_marker[1] *100)
-                
                 # t.transform.translation.x = float(calibrated_translation[0]/100)
                 # t.transform.translation.y = float(calibrated_translation[1]/100)
                 t.transform.translation.x = t_map_marker[0]
@@ -236,24 +222,18 @@ class MyTfBroadcaster(Node):
                 t.transform.rotation.z = float(q2d[2])
                 t.transform.rotation.w = float(q2d[3])
                 
-                pose = PoseWithCovarianceStamped()
-                pose.header.frame_id = "map"
-                pose.pose.pose.position.x = t_map_marker[0]
-                pose.pose.pose.position.y = t_map_marker[1]
-                pose.pose.pose.position.z = 0.0
-                pose.pose.pose.orientation.x = float(q2d[0])
-                pose.pose.pose.orientation.y = float(q2d[1])
-                pose.pose.pose.orientation.z = float(q2d[2])
-                pose.pose.pose.orientation.w = float(q2d[3])
-                covariance = [
-                    0.25, 0,    0,    0,    0,    0,
-                    0,    0.25, 0,    0,    0,    0,
-                    0,    0,    9999, 0,    0,    0,
-                    0,    0,    0,    9999, 0,    0,
-                    0,    0,    0,    0,    9999, 0,
-                    0,    0,    0,    0,    0,    0.05
-                ]
-                pose.pose.covariance = covariance
+                tracked_pose = PoseStamped()
+                tracked_pose.header.frame_id = "map"
+                tracked_pose.pose.position.x = t_map_marker[0]
+                tracked_pose.pose.position.y = t_map_marker[1]
+                tracked_pose.pose.position.z = 0.0
+                tracked_pose.pose.orientation.x = float(q2d[0])
+                tracked_pose.pose.orientation.x = float(q2d[1])
+                tracked_pose.pose.orientation.x = float(q2d[2])
+                tracked_pose.pose.orientation.x = float(q2d[3])
+                
+                self.tracked_pose_pub.publish(tracked_pose)
+                
                 tf_list.append(t)
                 # Draw marker border and axis
                 cv2.aruco.drawDetectedMarkers(frame, corners)
@@ -261,15 +241,6 @@ class MyTfBroadcaster(Node):
             
         self.br.sendTransform(tf_list)
         return frame
-    
-    # 3. 예측 함수
-    def predict(self, tf_x, tf_y):
-        print("TF: ", tf_x, tf_y)
-        input_scaled = self.scaler_X.transform([[tf_x, tf_y]])
-        pred_scaled = self.model.predict(input_scaled)
-        pred_real = self.scaler_Y.inverse_transform(pred_scaled)[0]
-        print(pred_real)
-        return tuple(pred_real)
 
     def __del__(self):
         print('exit')

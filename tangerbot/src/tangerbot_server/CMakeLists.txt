@@ -8,9 +8,13 @@ endif()
 # find dependencies
 find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
+find_package(rclcpp_action REQUIRED)
+find_package(tf2 REQUIRED)
 find_package(tangerbot_msgs REQUIRED)
 find_package(geometry_msgs REQUIRED)
 find_package(nav2_msgs REQUIRED)
+find_package(nav_msgs REQUIRED)
+find_package(OpenCV REQUIRED)
 
 include_directories(
   include
@@ -20,15 +24,16 @@ add_executable(udp_server
   src/udp_server.cpp
 )
 
-add_executable(path_planner
-  src/path_planner.cpp
-)
-ament_target_dependencies(path_planner 
-  rclcpp 
-  nav2_msgs
-  tangerbot_msgs 
-  geometry_msgs
-)
+add_executable(path_planner src/path_planner.cpp)
+ament_target_dependencies(path_planner rclcpp rclcpp_action nav_msgs tangerbot_msgs tf2)
+
+target_include_directories(path_planner
+  PUBLIC
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+    $<INSTALL_INTERFACE:include>
+  PRIVATE  
+    ${OpenCV_INCLUDE_DIRS})
+target_link_libraries(path_planner ${OpenCV_LIBS})
 
 add_executable(brain
   src/brain.cpp
