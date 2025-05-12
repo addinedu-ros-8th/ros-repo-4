@@ -156,9 +156,8 @@ void Tangerine::updateMonitoringMap(){
     ui->monitoringMap->setPixmap(pixmap);
     ui->monitoringMap->setScaledContents(true);
   }
-
+}
 
 void Tangerine::sendVoiceData(){
     
-}
 }
