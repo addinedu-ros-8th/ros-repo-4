@@ -1,0 +1,22 @@
+// generated from rosidl_adapter/resource/srv.idl.em
+// with input from tangerbot_msgs/srv/PathPlanning.srv
+// generated code does not contain a copyright notice
+
+#include "geometry_msgs/msg/Point.idl"
+
+module tangerbot_msgs {
+  module srv {
+    struct PathPlanning_Request {
+      sequence<string> robot_id;
+
+      sequence<int8> end;
+    };
+    struct PathPlanning_Response {
+      sequence<string> robot_id;
+
+      sequence<geometry_msgs::msg::Point> waypoints;
+
+      sequence<float> distance;
+    };
+  };
+};
