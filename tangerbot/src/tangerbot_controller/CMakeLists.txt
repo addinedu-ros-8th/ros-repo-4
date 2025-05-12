@@ -26,6 +26,8 @@ install(TARGETS
 
 install(PROGRAMS
   scripts/WakeWordListener.py
+  scripts/emotion.py
+  scripts/pinky_lcd.py
   DESTINATION lib/${PROJECT_NAME}
 )
 
