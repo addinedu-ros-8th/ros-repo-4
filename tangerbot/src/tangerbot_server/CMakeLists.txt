@@ -56,4 +56,9 @@ install(TARGETS
   bridge
   DESTINATION lib/${PROJECT_NAME})
 
+install(PROGRAMS
+  scripts/llm_node.py
+  DESTINATION lib/${PROJECT_NAME}
+)
+
 ament_package()
