@@ -17,7 +17,7 @@ class GestureNode(Node):
         self.mp_drawing = mp.solutions.drawing_utils
 
         # OpenCV 초기화
-        self.cap = cv2.VideoCapture(0)
+        self.cap = cv2.VideoCapture('udp://192.168.4.1:5000', cv2.CAP_FFMPEG)
         self.running = True  # 루프 중지 플래그
         self.timer = self.create_timer(0.05, self.process_frame)  # 20 FPS
 
