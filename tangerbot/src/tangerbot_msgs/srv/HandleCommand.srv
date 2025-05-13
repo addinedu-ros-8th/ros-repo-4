@@ -1,7 +1,7 @@
 string robot_id # if robot
 string user_id # if user
 uint8 type
-uint8 data
+string data
 
 # type
 uint8 MOVETOSECTION = 0

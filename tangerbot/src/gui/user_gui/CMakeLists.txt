@@ -22,6 +22,7 @@ find_package(rviz_common REQUIRED)
 find_package(rviz_default_plugins REQUIRED)
 find_package(geometry_msgs REQUIRED)
 find_package(nav_msgs REQUIRED)
+find_package(tangerbot_msgs REQUIRED)
 
 
 
@@ -36,10 +37,12 @@ include_directories(
 set(SOURCES
   src/main.cpp
   src/tangerine.cpp
+  src/image_button.cpp
 )
 
 set(HEADERS
   include/user_gui/tangerine.h
+  include/user_gui/image_button.h
 )
 
 set(UIS
@@ -62,6 +65,7 @@ ament_target_dependencies(user_gui
   rviz_default_plugins
   geometry_msgs
   nav_msgs
+  tangerbot_msgs
 )
 
 # 링크 설정

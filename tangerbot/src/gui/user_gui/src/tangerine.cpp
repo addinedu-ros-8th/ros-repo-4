@@ -1,4 +1,5 @@
 #include "include/user_gui/tangerine.h"
+#include "include/user_gui/image_button.h"
 #include "ui_tangerine.h"
 
 #include <QPixmap>
@@ -23,6 +24,12 @@ Tangerine::Tangerine(QWidget *parent) :
     node_ = rclcpp::Node::make_shared("tangerine_gui_node");
 
     /**********************************************
+     * * Initialize ROS2 Variables
+    ***********************************************/
+
+    handle_command_client = node_->create_client<tangerbot_msgs::srv::HandleCommand>("handle_command");
+
+    /**********************************************
      * * Load the main image for the intro page
     ***********************************************/
     QString path = QDir::current().absolutePath();
@@ -31,6 +38,12 @@ Tangerine::Tangerine(QWidget *parent) :
     QPixmap pixmap(imagePath); 
     ui->label_introPic->setPixmap(pixmap);
     ui->label_introPic->setScaledContents(true);
+
+    ImageButton *img_btn = new ImageButton(this, ui->frame_40);
+    QVBoxLayout *layout = new QVBoxLayout(ui->frame_40);
+    layout->addWidget(img_btn);
+    ui->frame_40->setLayout(layout);
+    connect(img_btn, &ImageButton::call_confirmed, this, &Tangerine::handle_selection);
 
     /**********************************************
      * * Navigate to Page
@@ -60,7 +73,6 @@ Tangerine::Tangerine(QWidget *parent) :
      * * Call Functions
     ***********************************************/
     goal_pub_ = node_->create_publisher<geometry_msgs::msg::PoseStamped>("/goal_pose", 10);
-    setupMapSubscriber();
 
 }
 
@@ -72,93 +84,34 @@ Tangerine::~Tangerine()
   rclcpp::shutdown();
 }
 
-
-/**********************************************
- * * Setup Map Subscriber
- **********************************************/
-void Tangerine::setupMapSubscriber(){
-  map_subscriber_ = node_->create_subscription<nav_msgs::msg::OccupancyGrid>("/map", 10,
-    [this](const nav_msgs::msg::OccupancyGrid::SharedPtr msg) {
-      map_received_ = true;
-      processMap(msg);
-      updateMonitoringMap();
-    });
+bool Tangerine::get_called_robot() {
+  return called_robot;
 }
 
-void Tangerine::processMap(const nav_msgs::msg::OccupancyGrid::SharedPtr msg){
+void Tangerine::handle_selection(QString section) {
+  using namespace std::chrono_literals;
 
-    // Convert OccupancyGrid to QImage
-    int width = msg->info.width;
-    int height = msg->info.height;
-    map_image_ = QImage(width, height, QImage::Format_RGB32);
-    map_metadata_ = msg->info;
+  called_robot = true;
+  auto request = std::make_shared<tangerbot_msgs::srv::HandleCommand::Request>();
+  request->user_id = user_id;
+  request->type = tangerbot_msgs::srv::HandleCommand::Request::MOVETOSECTION;
+  request->data = section.toStdString();
 
+  while (!handle_command_client->wait_for_service(1s)) {
+      if (!rclcpp::ok()) {
+      RCLCPP_ERROR(rclcpp::get_logger("rclcpp"), "Interrupted while waiting for the service. Exiting.");
+      return;
+      }
+      RCLCPP_INFO(rclcpp::get_logger("rclcpp"), "service not available, waiting again...");
+  }
 
-    for (int y = 0; y < height; ++y) {
-        for (int x = 0; x < width; ++x) {
-            int index = x + (height - y - 1) * width; // Flip y-axis for Qt
-            int8_t value = msg->data[index];
-            QRgb color;
-            if (value == -1) {
-                color = qRgb(128, 128, 128); // Unknown (gray)
-            } else if (value == 0) {
-                color = qRgb(255, 255, 255); // Free (white)
-            } else {
-                color = qRgb(0, 0, 0); // Occupied (black)
-            }
-            map_image_.setPixel(x, y, color);
-        }
-    }
-}
+  auto result = handle_command_client->async_send_request(request);
 
-void Tangerine::mousePressEvent(QMouseEvent *event) {
-    // Map from global window coords to map QLabel coords
-    QPoint labelTopLeft = ui->monitoringMap->mapToGlobal(QPoint(0, 0));
-    QPoint clickGlobal = event->globalPos();
-    QPoint clickOnLabel = clickGlobal - labelTopLeft;
-
-    if (ui->monitoringMap->rect().contains(clickOnLabel)) {
-        sendGoalFromClick(clickOnLabel);
-    }
-}
-
-
-void Tangerine::sendGoalFromClick(const QPoint &click_pos) {
-
-    if (!map_received_) return;
-  
-    // Convert pixel to map coordinates
-    double resolution = map_metadata_.resolution;
-    double origin_x = map_metadata_.origin.position.x;
-    double origin_y = map_metadata_.origin.position.y;
-  
-    int img_x = click_pos.x();
-    int img_y = click_pos.y();
-  
-    double map_x = origin_x + img_x * resolution;
-    double map_y = origin_y + (map_image_.height() - img_y) * resolution;
-  
-    geometry_msgs::msg::PoseStamped goal;
-    goal.header.frame_id = "map";
-    goal.header.stamp = node_->get_clock()->now();
-    goal.pose.position.x = map_x;
-    goal.pose.position.y = map_y;
-    goal.pose.position.z = 0.0;
-    goal.pose.orientation.w = 1.0; // no rotation
-  
-    goal_pub_->publish(goal);
-}
-  
-
-void Tangerine::updateMonitoringMap(){
-  if (map_received_) {
-    QPixmap pixmap = QPixmap::fromImage(map_image_);
-    ui->monitoringMap->setPixmap(pixmap);
-    ui->monitoringMap->setScaledContents(true);
+  if (rclcpp::spin_until_future_complete(node_, result) ==
+    rclcpp::FutureReturnCode::SUCCESS)
+  {
+    RCLCPP_INFO(node_->get_logger(), "success");
+  } else {
+    RCLCPP_ERROR(node_->get_logger(), "Failed to call service handle_command");
   }
 }
-
-// void Tangerine::sendVoiceData(){
-    
-
-// }
