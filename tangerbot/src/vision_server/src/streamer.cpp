@@ -193,10 +193,10 @@ private:
 	        if (all_chunks_ready) {
 	            std::vector<uint8_t> full_data;
 	            for (const auto& chunk : chunks) full_data.insert(full_data.end(), chunk.begin(), chunk.end());
-	            // 디버그: full_data 저장
-	            FILE* fp = fopen(("debug_full_data_cam" + std::to_string(hdr->camera_id) + ".jpg").c_str(), "wb");
-	            fwrite(full_data.data(), 1, full_data.size(), fp);
-	            fclose(fp);
+	            // DEBUG : full_data 저장
+	            //FILE* fp = fopen(("debug_full_data_cam" + std::to_string(hdr->camera_id) + ".jpg").c_str(), "wb");
+	            //fwrite(full_data.data(), 1, full_data.size(), fp);
+	            //fclose(fp);
 	            cv::Mat img = cv::imdecode(full_data, cv::IMREAD_COLOR);
 	            if (!img.empty()) {
 	                std::vector<uint8_t> encoded;

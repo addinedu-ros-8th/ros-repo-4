@@ -15,7 +15,7 @@ find_package(ament_index_cpp REQUIRED)
 
 # ----------- libSGM + CUDA 관련 분기 ----------
 if(USE_LIBSGM)
-  message(STATUS "✅ libSGM + CUDA 빌드 활성화됨")
+  message(STATUS "libSGM + CUDA 빌드 활성화")
 
   # CUDA 설정
   set(CUDA_TOOLKIT_ROOT_DIR "/usr/local/cuda")
@@ -49,9 +49,14 @@ if(USE_LIBSGM)
     std_msgs
     tangerbot_msgs
     OpenCV
+    ament_index_cpp
   )
   target_link_libraries(follower
     ${OpenCV_LIBS}
+    ${OpenCV_LIBS}
+    ${CUDA_LIBRARIES}
+    ${LIBSGM_LIB}
+    sample_common
   )
   target_include_directories(follower PRIVATE
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
