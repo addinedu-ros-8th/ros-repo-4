@@ -3,6 +3,7 @@ from rclpy.node import Node
 
 from geometry_msgs.msg import TransformStamped
 from geometry_msgs.msg import PoseWithCovarianceStamped
+from geometry_msgs.msg import PoseStamped
 import tf2_ros
 import math
 import numpy as np
@@ -16,6 +17,7 @@ import os
 from tf_transformations import euler_from_quaternion, quaternion_from_euler
 import tf_transformations
 import yaml
+from std_msgs.msg import Bool
 
 # TF 보정 import
 import pandas as pd
@@ -24,13 +26,36 @@ from sklearn.linear_model import LinearRegression
 from sklearn.neighbors import KNeighborsRegressor
 from sklearn.preprocessing import MinMaxScaler
 
+class YawKalmanFilter:
+    def __init__(self, process_noise=0.01, measurement_noise=0.1, initial_estimate=0.0):
+        self.x = initial_estimate  
+        self.P = 1.0         
+        self.Q = process_noise    
+        self.R = measurement_noise
+
+    def update(self, measurement):
+        # Prediction step (no control input)
+        self.P += self.Q
+
+        # Kalman gain
+        K = self.P / (self.P + self.R)
+
+        # Update estimate
+        self.x = self.x + K * (measurement - self.x)
+
+        # Update error covariance
+        self.P = (1 - K) * self.P
+
+        return self.x
+
 class MyTfBroadcaster(Node):
     def __init__(self, source, aruco_dict_type, matrix_coefficients, distortion_coefficients, marker_length):
         super().__init__("my_tf_broadcaster")
         
         self.br = tf2_ros.TransformBroadcaster(self)
+        self.tracked_pose_pub = self.create_publisher(PoseStamped, "tracked_pose", 10)
         
-        self.timer = self.create_timer(0.1, self.timer_callback)
+        self.timer = self.create_timer(0.05, self.timer_callback)
         self.t = 0.0
         
         self.cap = cv2.VideoCapture(source)
@@ -50,20 +75,10 @@ class MyTfBroadcaster(Node):
             '/initialpose',
             10)
         
-        # 1. 데이터 불러오기 및 정규화
-        pkg_path = get_package_share_directory('aruco_package')
-        df = pd.read_excel(pkg_path + "/Book1.xlsx")
-        X = df[['tf_x', 'tf_y']].values
-        Y = df[['real_x', 'real_y']].values
-
-        self.scaler_X = MinMaxScaler().fit(X)
-        self.scaler_Y = MinMaxScaler().fit(Y)
-        X_scaled = self.scaler_X.transform(X)
-        Y_scaled = self.scaler_Y.transform(Y)
-
-        # 2. 머신러닝 모델 정의 및 학습 (원하는 모델 선택)
-        self.model = KNeighborsRegressor(n_neighbors = 5)
-        self.model.fit(X_scaled, Y_scaled)
+        self.robot_status_sub = self.create_subscription(Bool, "/robot_status", self.robot_status_callback, 10)
+        self.robot_status = None
+        
+        self.kf = YawKalmanFilter(process_noise=0.001, measurement_noise=0.05, initial_estimate=0.0)
         
     def timer_callback(self):
         
@@ -77,6 +92,9 @@ class MyTfBroadcaster(Node):
         key = cv2.waitKey(1) & 0xFF
         if key == ord('q'):
             raise Exception
+        
+    def robot_status_callback(self, msg):
+        self.robot_status = msg.data
         
     def pose_estimation(self, frame):
         pkg_path = get_package_share_directory('aruco_package')
@@ -131,7 +149,7 @@ class MyTfBroadcaster(Node):
                 rvec, tvec, _ = cv2.aruco.estimatePoseSingleMarkers(
                     corners[i], self.marker_length, self.matrix_coefficients, self.distortion_coefficients
                 )
-                if ids[i] != 1:
+                if ids[i] != 3:
                     continue
                 #if (ids[i] != 3): continue
                 R, _ = cv2.Rodrigues(rvec)
@@ -185,16 +203,18 @@ class MyTfBroadcaster(Node):
                 
                 quat = tf_transformations.quaternion_from_matrix(T_map_marker)
                 
-                calibrated_translation = self.predict(t_map_marker[0] * 100, t_map_marker[1] *100)
-                
-                t.transform.translation.x = float(calibrated_translation[0]/100)
-                t.transform.translation.y = float(calibrated_translation[1]/100)
-                # t.transform.translation.x = t_map_marker[0]
-                # t.transform.translation.y = t_map_marker[1]
+                # t.transform.translation.x = float(calibrated_translation[0]/100)
+                # t.transform.translation.y = float(calibrated_translation[1]/100)
+                t.transform.translation.x = t_map_marker[0]
+                t.transform.translation.y = t_map_marker[1]
                 t.transform.translation.z = 0.0
                 
                 roll, pitch, yaw = euler_from_quaternion(quat)
                 
+                filterd_yaw = self.kf.update(yaw)
+                #yaw = self.pred_yaw * self.ALPHA + yaw * (1 - self.ALPHA)
+                # if not self.robot_status:
+                #     yaw = filterd_yaw
                 q2d = quaternion_from_euler(0, 0, yaw)
 
                 t.transform.rotation.x = float(q2d[0])
@@ -202,24 +222,18 @@ class MyTfBroadcaster(Node):
                 t.transform.rotation.z = float(q2d[2])
                 t.transform.rotation.w = float(q2d[3])
                 
-                pose = PoseWithCovarianceStamped()
-                pose.header.frame_id = "map"
-                pose.pose.pose.position.x = t_map_marker[0]
-                pose.pose.pose.position.y = t_map_marker[1]
-                pose.pose.pose.position.z = 0.0
-                pose.pose.pose.orientation.x = float(q2d[0])
-                pose.pose.pose.orientation.y = float(q2d[1])
-                pose.pose.pose.orientation.z = float(q2d[2])
-                pose.pose.pose.orientation.w = float(q2d[3])
-                covariance = [
-                    0.25, 0,    0,    0,    0,    0,
-                    0,    0.25, 0,    0,    0,    0,
-                    0,    0,    9999, 0,    0,    0,
-                    0,    0,    0,    9999, 0,    0,
-                    0,    0,    0,    0,    9999, 0,
-                    0,    0,    0,    0,    0,    0.05
-                ]
-                pose.pose.covariance = covariance
+                tracked_pose = PoseStamped()
+                tracked_pose.header.frame_id = "map"
+                tracked_pose.pose.position.x = t_map_marker[0]
+                tracked_pose.pose.position.y = t_map_marker[1]
+                tracked_pose.pose.position.z = 0.0
+                tracked_pose.pose.orientation.x = float(q2d[0])
+                tracked_pose.pose.orientation.x = float(q2d[1])
+                tracked_pose.pose.orientation.x = float(q2d[2])
+                tracked_pose.pose.orientation.x = float(q2d[3])
+                
+                self.tracked_pose_pub.publish(tracked_pose)
+                
                 tf_list.append(t)
                 # Draw marker border and axis
                 cv2.aruco.drawDetectedMarkers(frame, corners)
@@ -227,15 +241,6 @@ class MyTfBroadcaster(Node):
             
         self.br.sendTransform(tf_list)
         return frame
-    
-    # 3. 예측 함수
-    def predict(self, tf_x, tf_y):
-        print("TF: ", tf_x, tf_y)
-        input_scaled = self.scaler_X.transform([[tf_x, tf_y]])
-        pred_scaled = self.model.predict(input_scaled)
-        pred_real = self.scaler_Y.inverse_transform(pred_scaled)[0]
-        print(pred_real)
-        return tuple(pred_real)
 
     def __del__(self):
         print('exit')
