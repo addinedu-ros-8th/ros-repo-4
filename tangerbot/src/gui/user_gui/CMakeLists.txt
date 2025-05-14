@@ -24,25 +24,30 @@ find_package(geometry_msgs REQUIRED)
 find_package(nav_msgs REQUIRED)
 find_package(tangerbot_msgs REQUIRED)
 
-
-
 # include 디렉토리 지정
-include_directories(
-  include
-  ${Qt5Widgets_INCLUDE_DIRS}
-  ${rclcpp_INCLUDE_DIRS}
-)
+# include_directories(
+#   include
+#   ${Qt5Widgets_INCLUDE_DIRS}
+#   ${rclcpp_INCLUDE_DIRS}
+# )
+
+# add folder
+file(COPY ${CMAKE_SOURCE_DIR}/image DESTINATION ${CMAKE_BINARY_DIR})
 
 # 헤더, 소스, UI 파일 수동으로 지정
 set(SOURCES
   src/main.cpp
   src/tangerine.cpp
   src/image_button.cpp
+  src/circular_progressbar.cpp
+  src/battery_widget.cpp
 )
 
 set(HEADERS
   include/user_gui/tangerine.h
   include/user_gui/image_button.h
+  include/user_gui/circular_progressbar.h
+  include/user_gui/battery_widget.h
 )
 
 set(UIS
@@ -57,6 +62,10 @@ add_executable(user_gui
   ${HEADERS}
   ${UIS}
 )
+
+target_include_directories(user_gui PUBLIC
+$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+$<INSTALL_INTERFACE:include>)
 
 ament_target_dependencies(user_gui
   rclcpp

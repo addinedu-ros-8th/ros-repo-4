@@ -1,5 +1,4 @@
-#include "include/user_gui/image_button.h"
-
+#include "user_gui/image_button.h"
 #include <QDir>
 #include <QPixmap>
 #include <QDebug>
@@ -64,6 +63,7 @@ void ImageButton::paintEvent(QPaintEvent *event) {
 }
 
 void ImageButton::mouseMoveEvent(QMouseEvent *event) {
+    Q_UNUSED(event);
     section_1 = false;
     section_2 = false;
     section_3 = false;

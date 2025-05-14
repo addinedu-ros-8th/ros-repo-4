@@ -3,6 +3,9 @@
 
 #include <QMainWindow>
 #include <QString>
+#include <QMessageBox>
+#include <QMovie>
+#include <QCoreApplication>
 #include <rclcpp/rclcpp.hpp>
 #include <rviz_common/visualization_manager.hpp>
 #include <rviz_common/render_panel.hpp>
@@ -14,6 +17,8 @@
 #include <chrono>
 #include <string>
 
+class CircularProgressBar;
+class BatteryWidget;
 
 namespace Ui { 
     class Tangerine; 
@@ -44,8 +49,14 @@ private:
     
     bool map_received_;
     QImage map_image_;
+    QMovie *loading;
+    CircularProgressBar *circular_progressbar;
+    CircularProgressBar *battery_circular_progressbar;
+    BatteryWidget *battery_widget;
 
     bool called_robot = false;
+    int current_robottab_index = 0;
+
 };
 
 #endif
