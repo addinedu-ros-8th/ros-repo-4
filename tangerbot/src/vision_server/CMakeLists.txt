@@ -9,6 +9,7 @@ option(USE_LIBSGM "Enable libSGM + CUDA-based obstacle detection" OFF)
 find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(std_msgs REQUIRED)
+find_package(sensor_msgs REQUIRED)
 find_package(OpenCV REQUIRED)
 find_package(tangerbot_msgs REQUIRED)
 find_package(ament_index_cpp REQUIRED)
@@ -98,6 +99,22 @@ if(USE_LIBSGM)
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
   )
 endif()
+
+# obstacle_checker 노드
+add_executable(obstacle_checker src/obstacle_checker.cpp)
+ament_target_dependencies(obstacle_checker
+  rclcpp
+  std_msgs
+  sensor_msgs
+  ament_index_cpp
+)
+target_link_libraries(obstacle_checker
+  ${OpenCV_LIBS}
+)
+target_include_directories(obstacle_checker PRIVATE
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+)
+
 # ----------- Python 노드 설치 ----------
 install(PROGRAMS
   scripts/gesture_node.py
@@ -114,10 +131,14 @@ if(USE_LIBSGM)
     streamer
   )
 endif()
+
+# ----------- C++ 노드 설치 ----------
 install(TARGETS
   ${TARGETS_TO_INSTALL}
+  obstacle_checker
   DESTINATION lib/${PROJECT_NAME}
 )
+
 # calibration_data.yml 설치 추가
 install(DIRECTORY config
   DESTINATION share/${PROJECT_NAME}
