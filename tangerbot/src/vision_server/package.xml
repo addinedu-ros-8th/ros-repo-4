@@ -10,6 +10,7 @@
 
   <depend>rclcpp</depend>
   <depend>std_msgs</depend>
+  <depend>sensor_msgs</depend>
   <depend>tangerbot_msgs</depend>
 
   <!-- OpenCV system 라이브러리 -->
