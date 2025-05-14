@@ -58,44 +58,20 @@ void TangerbotManager::person_pose_callbacks(const tangerbot_msgs::msg::RobotPos
                 msg->pose.pose.position.x, msg->pose.pose.position.y, msg->pose.pose.orientation.z);
 }     
 
-//TODO
 /***********************************************
  * * update_battery
  * It decreases the battery level based on the robot's motion status and recharges it when idle.
  * @param robotID The ID of the robot
  * @param currentBattery The current battery level
 ************************************************/
-// void TangerbotManager::update_battery(string robotID, float currentBattery) {
-//     auto msg = tangerbot_msgs::msg::RobotState();
-//     msg.robot_id = robotID;
+void TangerbotManager::update_battery() {
+    Battery battery_sensor;  
+    float battery_percentage = battery_sensor.get_battery();  
 
-//     // current robot status
-//     msg.main_status = main_status;
-//     msg.motion_status = motion_status;
+    RCLCPP_INFO(this->get_logger(), "Battery percentage: %.2f%%", battery_percentage);
 
-//     // Decrease 0.1% per cycle (every 500ms)
-//     float consumption_rate = 0.05f;  // Default
-//     if (msg.motion_status == tangerbot_msgs::msg::RobotState::MOVING) consumption_rate = 0.1f;
-//     else if (msg.motion_status == tangerbot_msgs::msg::RobotState::LOADING) consumption_rate = 0.15f;
-//     currentBattery -= consumption_rate;
-    
-//     // Battery can't be negative
-//     if (battery < 0.0f)
-//         battery = 0.0f;
-    
-//     // Rechrage battery when idle
-//     if (msg.main_status == tangerbot_msgs::msg::RobotState::IDLE && battery < 100.0f) {
-//         battery += 0.2f;  // Charge while idle
-//         if (battery > 100.0f)
-//             battery = 100.0f;
-//     }
-
-//     msg.battery = battery;
-
-//     RCLCPP_INFO(this->get_logger(), "Publishing Battery: %.2f%%", battery);
-//     state_publisher->publish(msg);
-
-// }
+    this->battery = battery_percentage;  
+}
 
 //TODO
 /************************************************
@@ -103,6 +79,8 @@ void TangerbotManager::person_pose_callbacks(const tangerbot_msgs::msg::RobotPos
  * @description: This function is called every 500ms to update the robot's state.
 ************************************************/   
 void TangerbotManager::state_callbacks() {
+    update_battery(); 
+
     auto msg = tangerbot_msgs::msg::RobotState();
     msg.robot_id = robot_id;
     msg.main_status = main_status;
@@ -110,18 +88,72 @@ void TangerbotManager::state_callbacks() {
     msg.battery = battery;
 
     state_publisher->publish(msg);
-
-    // Simulate battery consumption
-    //update_battery(robot_id, battery);
 }
 
-int main(int argc , char **argv)
-{
+/************************************************
+ * * CONSTRUCTOR 
+ * @node_name: tangerbot_manager
+ * @description: raw 계산결과 퍼센트로 변경
+ ************************************************/
+float Battery::calculate_percentage(int value) {
+    if (value < min_value_)
+        return 0.0f;
+    else if (value > max_value_)
+        return 100.0f;
+    else
+        return (float)(value - min_value_) / (max_value_ - min_value_) * 100.0f;
+}
+
+/************************************************
+ * * CONSTRUCTOR 
+ * @node_name: tangerbot_manager
+ * @description: raw값 평균계산 후 퍼센트 변경요청 및 퍼센트 반환
+ ************************************************/
+float Battery::get_battery(int sample_count) {
+    std::vector<int> values;
+    for (int i = 0; i < sample_count; i++) {
+        int value = read_adc_value();
+        values.push_back(value);
+        usleep(100000);  // 0.1초 대기
+    }
+    
+    // 평균값 계산
+    int sum = 0;
+    for (int v : values) sum += v;
+    int avg_value = sum / values.size();
+    
+    // 퍼센트 계산
+    return calculate_percentage(avg_value);
+}
+
+/************************************************
+ * * CONSTRUCTOR 
+ * @node_name: tangerbot_manager
+ * @description: 배터리 칩셋 요청 (배터리 전압 반환 요청 및 결과 로우데이터 반환)
+ ************************************************/
+int Battery::read_adc_value() {
+    // ADS1115에 읽기 명령 전송 (변환 시작)
+    uint8_t config[3] = {0x01, 0xC3, 0x83};  // AIN0, 4.096V, 128SPS, single-shot
+    write(file_, config, 3);
+
+    // 변환 대기 후 레지스터 포인터로 읽기
+    uint8_t pointer[1] = {0x00};  // 데이터 레지스터 포인터
+    write(file_, pointer, 1);
+    usleep(100000);  // 변환 대기
+    
+    uint8_t data[2];
+    read(file_, data, 2);
+    // 16비트 데이터를 결합하여 반환
+    int16_t raw = (data[0] << 8) | data[1];
+
+    return raw;
+}
+
+int main(int argc , char **argv) {
     rclcpp::init(argc, argv);
     auto pub = std::make_shared<TangerbotManager>();
     rclcpp::spin(pub);
     rclcpp::shutdown();
+
     return 0;
 }
-
-
