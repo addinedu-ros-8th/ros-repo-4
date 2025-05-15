@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 import rclpy
 from rclpy.node import Node
-from std_msgs.msg import String, UInt8MultiArray
+from std_msgs.msg import String, ByteMultiArray
 import speech_recognition as sr
 import time
 import sounddevice as sd
@@ -9,6 +9,8 @@ import numpy as np
 import io
 import wave
 from pinky_interfaces.srv import Emotion
+from tangerbot_msgs.srv import HandleRawVoice
+
 
 SAMPLE_RATE = 16000
 FRAME_SIZE = 1024
@@ -20,12 +22,15 @@ class WakeWordListener(Node):
 
         # 퍼블리셔
         self.wake_pub_ = self.create_publisher(String, '/wake_word', 10)
-        self.audio_stream_pub_ = self.create_publisher(UInt8MultiArray, '/voice_command/audio_stream', 10)
 
         # 감정 서비스 클라이언트
         self.emotion_cli = self.create_client(Emotion, 'set_emotion')
         while not self.emotion_cli.wait_for_service(timeout_sec=1.0):
             self.get_logger().info('⏳ 감정 서비스 기다리는 중...')
+            
+        self.voice_cli = self.create_client(HandleRawVoice, 'handle_raw_voice')
+        while not self.voice_cli.wait_for_service(timeout_sec=1.0):
+            self.get_logger().info('🎙 음성 처리 서비스 기다리는 중...')
 
         # 음성 인식기 초기화
         self.recognizer = sr.Recognizer()
@@ -132,13 +137,12 @@ class WakeWordListener(Node):
         if not buffer:
             return None
 
-        audio = np.concatenate(buffer, axis=0)
-        return audio
+        return np.concatenate(buffer, axis=0)
 
     def is_speech(self, audio_bytes):
         return np.max(np.frombuffer(audio_bytes, dtype=np.int16)) > 500
 
-    def send_audio_stream(self, audio_np):
+    def send_audio_via_service(self, audio_np):
         self.get_logger().info("📤 오디오 바이트 스트림 인코딩 중...")
         buf = io.BytesIO()
         with wave.open(buf, 'wb') as wf:
@@ -148,10 +152,28 @@ class WakeWordListener(Node):
             wf.writeframes(audio_np.tobytes())
 
         byte_data = np.frombuffer(buf.getvalue(), dtype=np.uint8)
-        msg = UInt8MultiArray()
-        msg.data = byte_data.tolist()
-        self.audio_stream_pub_.publish(msg)
-        self.get_logger().info(f"✅ 퍼블리시 완료: {len(byte_data)} bytes 전송됨")
+
+        # 📨 서비스 요청 생성
+        req = HandleRawVoice.Request()
+        req.robot_id = "pinky"
+        req.user_id = "user123"
+        req.data = ByteMultiArray()
+        req.data.data = byte_data.tolist()
+
+        # 🛠 서비스 호출
+        future = self.voice_cli.call_async(req)
+
+        def response_callback(future):
+            try:
+                res = future.result()
+                if res.success:
+                    self.get_logger().info("✅ 음성 데이터 전송 성공")
+                else:
+                    self.get_logger().warn("⚠️ 음성 처리 실패")
+            except Exception as e:
+                self.get_logger().error(f"❌ 서비스 호출 실패: {e}")
+
+        future.add_done_callback(response_callback)
 
 def main(args=None):
     rclpy.init(args=args)

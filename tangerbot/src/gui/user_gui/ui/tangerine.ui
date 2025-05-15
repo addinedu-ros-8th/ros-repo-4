@@ -36,9 +36,13 @@
         <widget class="QStackedWidget" name="stackedWidget">
          <property name="currentIndex">
 <<<<<<< HEAD
+          <number>5</number>
+=======
+<<<<<<< HEAD
           <number>0</number>
 =======
           <number>4</number>
+>>>>>>> dev
 >>>>>>> dev
          </property>
          <widget class="QWidget" name="page">
