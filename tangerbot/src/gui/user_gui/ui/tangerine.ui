@@ -35,11 +35,7 @@
        <item row="0" column="0">
         <widget class="QStackedWidget" name="stackedWidget">
          <property name="currentIndex">
-<<<<<<< HEAD
           <number>0</number>
-=======
-          <number>4</number>
->>>>>>> dev
          </property>
          <widget class="QWidget" name="page">
           <layout class="QVBoxLayout" name="verticalLayout">
