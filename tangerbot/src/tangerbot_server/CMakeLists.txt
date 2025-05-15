@@ -15,6 +15,11 @@ find_package(geometry_msgs REQUIRED)
 find_package(nav2_msgs REQUIRED)
 find_package(nav_msgs REQUIRED)
 find_package(OpenCV REQUIRED)
+find_package(yaml-cpp REQUIRED)
+
+
+find_library(MYSQLCPP_CONN_LIB mysqlcppconn)
+
 
 include_directories(
   include
@@ -38,7 +43,18 @@ target_link_libraries(path_planner ${OpenCV_LIBS})
 add_executable(brain
   src/brain.cpp
 )
-ament_target_dependencies(brain rclcpp tangerbot_msgs geometry_msgs)
+ament_target_dependencies(brain 
+  rclcpp 
+  rclcpp_action
+  nav2_msgs
+  tangerbot_msgs 
+  geometry_msgs
+)
+
+target_link_libraries(brain 
+  ${YAML_CPP_LIBRARIES}
+  ${MYSQLCPP_CONN_LIB}
+)
 
 
 if(BUILD_TESTING)
