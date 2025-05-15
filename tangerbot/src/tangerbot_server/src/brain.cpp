@@ -65,8 +65,9 @@ Brain::Brain() : Node("brain") {
         auto goal_pose = geometry_msgs::msg::PoseStamped();
 
         double x,y;
-        sscanf(point.c_str(), "POINT(%lf, %lf)", &x, &y);
-
+        sscanf(point.c_str(), "POINT(%lf %lf)", &x, &y);
+        printf("%s", point.c_str());
+        printf("x: %lf Y: %lf", x, y);
         goal_pose.pose.position.x = x;
         goal_pose.pose.position.y = y;
         goal_pose.pose.position.z = 0.0;
@@ -139,22 +140,26 @@ std::shared_ptr<tangerbot_msgs::action::PathPlanning::Result> Brain::request_pat
     goal_msg.robot_id = robot_id;
     goal_msg.goal = goal_pose;
 
+    if (!path_planning_client_->wait_for_action_server()) {
+        RCLCPP_ERROR(this->get_logger(), "Action server not available after waiting");
+        return nullptr;
+    }
+
     //send goal_msg (robot id and goal pose) to the Path Planning
     auto future_goal_handle = path_planning_client_->async_send_goal(goal_msg);
     
     RCLCPP_INFO(this->get_logger(), "x: %lf", goal_pose.pose.position.x);
-    //get result
+
     auto goal_handle = future_goal_handle.get();
-    if (!goal_handle){
+    if (!goal_handle) {
+        RCLCPP_ERROR(this->get_logger(), "Goal was rejected");
         return nullptr;
     }
 
+    RCLCPP_INFO(this->get_logger(), "hi");
     auto future_result = path_planning_client_->async_get_result(goal_handle);
-    // if (rclcpp::spin_until_future_complete(this->get_node_base_interface(), 
-    //                                     future_result) != rclcpp::FutureReturnCode::SUCCESS){
-    //     return nullptr;
-    // }
-
+    
+    RCLCPP_INFO(this->get_logger(), " Complete Path !");
     return future_result.get().result;
 }
 /************************************************
@@ -178,10 +183,10 @@ std::string Brain::select_optimal_robot(const geometry_msgs::msg::PoseStamped& g
 
         double battery_score = state.battery/100.0;
         double distance_score = 1.0/(1.0+distance);
-        double workload_score = 1.0/(1.0+request_workload(robot_id));
+        //double workload_score = 1.0/(1.0+request_workload(robot_id));
 
-        double score = 0.5 * battery_score + 0.3 * distance_score + 0.2 * workload_score;
-
+        //double score = 0.5 * battery_score + 0.3 * distance_score + 0.2 * workload_score;
+        double score = distance;
         if (score > best_score){
             best_score = score;
             selected_robot_id = robot_id;
@@ -189,7 +194,6 @@ std::string Brain::select_optimal_robot(const geometry_msgs::msg::PoseStamped& g
         }
     }   
         
-    RCLCPP_INFO(this->get_logger(), "Selected Optimal Robot: %s", selected_robot_id.c_str());
     return selected_robot_id;
 }
 
@@ -208,7 +212,7 @@ bool Brain::set_robot_state(const std::string& robot_id, int main_status, int mo
             RCLCPP_ERROR(this->get_logger(), "Interrupted while waiting for the service.");
             return false;
         }
-        RCLCPP_INFO(this->get_logger(), "Waiting for service to become available...");
+        RCLCPP_INFO(this->get_logger(), "Waiting for set robot state service to become available...");
     }
 
     // Send request and get future response
@@ -241,24 +245,32 @@ void Brain::move_to_section(const geometry_msgs::msg::PoseStamped& goal_pose)
         RCLCPP_ERROR(this->get_logger(), "No Available Robot to Assign.");
         return;
     }
-    
-    //Step 2: Change status of selected robot
-    bool set_state = set_robot_state(selected_robot_id, 1, 0); //Working, Moving
-    if (!set_state){
-        RCLCPP_WARN(this->get_logger(), "Failed to update robot state");
-    }
 
-    // Step 3: Send FollowPath goal asynchronously
+    RCLCPP_INFO(this->get_logger(), "Selected Optimal Robot: %s", selected_robot_id.c_str());
+
+
+    //Step 2: Change status of selected robot
+    // bool set_state = set_robot_state(selected_robot_id, 1, 0); //Working, Moving
+    // if (!set_state){
+    //     RCLCPP_WARN(this->get_logger(), "Failed to update robot state");
+    // }
+    RCLCPP_INFO(this->get_logger(), "Set Robot State");
+    
+    /* Step 3: Send FollowPath goal asynchronously */
+    //create the goal message
     auto goal_msg = nav2_msgs::action::FollowPath::Goal();
     goal_msg.path = selected_robot_path_;
 
-    if (!follow_path_client_->wait_for_action_server(std::chrono::seconds(5))){
+
+    //wait for the follow path action server to become available
+    if (!follow_path_client_->wait_for_action_server(std::chrono::seconds(10))){
         RCLCPP_ERROR(this->get_logger(), "Follow Path Action Server not availaable");
-        set_robot_state(selected_robot_id, 0, 2); //IDLE, Stop
+        //set_robot_state(selected_robot_id, 0, 2); //IDLE, Stop
         return;
     }
 
-    auto send_goal_options = rclcpp_action::Client<nav2_msgs::action::FollowPath>::SendGoalOptions();
+    //setup send goal options (goal is accepted / feedback is received / result comes back)
+    auto send_goal_options = rclcpp_action::Client<nav2_msgs::action::FollowPath>::SendGoalOptions(); 
     send_goal_options.result_callback = [this, selected_robot_id](const auto& result){
 
         if (result.code==rclcpp_action::ResultCode::SUCCEEDED){
@@ -268,8 +280,22 @@ void Brain::move_to_section(const geometry_msgs::msg::PoseStamped& goal_pose)
         }
     };
 
-    follow_path_client_->async_send_goal(goal_msg, send_goal_options);
-
+    auto future_goal_handle = follow_path_client_->async_send_goal(goal_msg, send_goal_options);
+    RCLCPP_INFO(this->get_logger(), "Send follow path goal");
+    
+    auto goal_handle = future_goal_handle.get();
+    if (!goal_handle) {
+        RCLCPP_ERROR(this->get_logger(), "Goal was rejected by the server");
+        return;
+    }
+    auto result_future = follow_path_client_->async_get_result(goal_handle);
+    RCLCPP_INFO(this->get_logger(), "%lf", goal_msg.path.poses[0].pose.position.x);
+    auto result = result_future.get();
+    if (result.code == rclcpp_action::ResultCode::SUCCEEDED) {
+        RCLCPP_INFO(this->get_logger(), "Robot reached the goal.");
+    } else {
+        RCLCPP_WARN(this->get_logger(), "Robot failed to reach the goal. Result code: %d", result.code);
+    }
 }
 
 /**********************************************************************************************************/
@@ -295,9 +321,22 @@ void Brain::handle_command_service_callback(
    
 
     if (command == request->MOVETOSECTION){
-        threadMove_ = std::thread(&Brain::move_to_section, this, goal_pose);
-        threadMove_.detach();
+        std::thread(&Brain::move_to_section, this, goal_pose).detach();
     }
+
+    // if (command == request->FOLLOWING){
+        
+    // }
+
+    // if (command == request->STOP){
+    //     std::string robot_id = request->robot_id;
+    //     //just make the stop
+    // }
+
+    // if (command == request->RETURN){
+    //     std::string robot_id = request->robot_id;
+    //     //just make the return
+    // }
     
     response->success = true;
 }
@@ -307,7 +346,12 @@ void Brain::handle_command_service_callback(
 int main(int argc, char ** argv) {
     rclcpp::init(argc, argv);
     auto node = std::make_shared<Brain>();
-    rclcpp::spin(node);
+
+    rclcpp::executors::MultiThreadedExecutor executor;
+    executor.add_node(node);
+
+    executor.spin();
+
     rclcpp::shutdown();
     return 0;
 }
