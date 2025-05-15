@@ -26,28 +26,11 @@ from sklearn.linear_model import LinearRegression
 from sklearn.neighbors import KNeighborsRegressor
 from sklearn.preprocessing import MinMaxScaler
 
-class YawKalmanFilter:
-    def __init__(self, process_noise=0.01, measurement_noise=0.1, initial_estimate=0.0):
-        self.x = initial_estimate  
-        self.P = 1.0         
-        self.Q = process_noise    
-        self.R = measurement_noise
-
-    def update(self, measurement):
-        # Prediction step (no control input)
-        self.P += self.Q
-
-        # Kalman gain
-        K = self.P / (self.P + self.R)
-
-        # Update estimate
-        self.x = self.x + K * (measurement - self.x)
-
-        # Update error covariance
-        self.P = (1 - K) * self.P
-
-        return self.x
-
+""" MyTfBroadcaster Node
+    
+    Description:
+        Estimate robot pose and publish
+"""
 class MyTfBroadcaster(Node):
     def __init__(self, source, aruco_dict_type, matrix_coefficients, distortion_coefficients, marker_length):
         super().__init__("my_tf_broadcaster")
@@ -70,18 +53,23 @@ class MyTfBroadcaster(Node):
         self.distortion_coefficients = distortion_coefficients
         self.marker_length = marker_length
         
-        self.publisher = self.create_publisher(
-            PoseWithCovarianceStamped,
-            '/initialpose',
-            10)
+        pkg_path = get_package_share_directory('aruco_package')
+        robot_yaml_path = os.path.join(pkg_path, 'config', 'robot.yaml')
+        robot_data = self.get_yaml(robot_yaml_path)
+        self.aruco_marker_list = robot_data["robot"]["aruco_marker"]
+        self.robot_id_list = robot_data["robot"]["robot_id"]
         
-        self.robot_status_sub = self.create_subscription(Bool, "/robot_status", self.robot_status_callback, 10)
-        self.robot_status = None
+        self.prev_yaw = 0
+        self.prev_tvec = np.array([0, 0, 0])
+        self.ALPHA = 0.6
         
-        self.kf = YawKalmanFilter(process_noise=0.001, measurement_noise=0.05, initial_estimate=0.0)
+    def get_yaml(self, path):
+        with open(path, 'r') as f:
+            data = yaml.safe_load(f)
+        return data
         
+    # Get frame and pose esimation of aruco marker
     def timer_callback(self):
-        
         ret, frame = self.cap.read()
         if not ret:
             raise Exception
@@ -93,21 +81,18 @@ class MyTfBroadcaster(Node):
         if key == ord('q'):
             raise Exception
         
-    def robot_status_callback(self, msg):
-        self.robot_status = msg.data
-        
     def pose_estimation(self, frame):
         pkg_path = get_package_share_directory('aruco_package')
         calibration_path = os.path.join(pkg_path, 'config', 'pose.yaml')
         
-        with open(calibration_path, 'r') as f:
-            data = yaml.safe_load(f)
+        data = self.get_yaml(calibration_path)
         
         base_position = data["base_marker"]["position"]
         camera_pose = data["camera_pose"]
-            
+        time_stamp = self.get_clock().now().to_msg()
+        # Calibration marker TF    
         base = TransformStamped()
-        base.header.stamp = self.get_clock().now().to_msg()
+        base.header.stamp = time_stamp
         
         base.header.frame_id = "map"
         base.child_frame_id = "base_marker"
@@ -116,9 +101,10 @@ class MyTfBroadcaster(Node):
         base.transform.translation.y = base_position['y']
         base.transform.translation.z = base_position['z']
         
+        # Camera TF
         camera = TransformStamped()
                 
-        camera.header.stamp = self.get_clock().now().to_msg()
+        camera.header.stamp = time_stamp
         
         camera.header.frame_id = "map"
         camera.child_frame_id = "camera"
@@ -132,26 +118,32 @@ class MyTfBroadcaster(Node):
         camera.transform.rotation.z = camera_pose["orientation"]['z']
         camera.transform.rotation.w = camera_pose["orientation"]['w']
         
-        gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-        corners, ids, _ = self.detector.detectMarkers(gray)
-        
+        # Map -> odom TF required for nav2 navigation
         odom = TransformStamped()
         odom.header.frame_id = "map"
         odom.child_frame_id = "odom"
-        odom.header.stamp = self.get_clock().now().to_msg()
+        odom.header.stamp = time_stamp
         
         tf_list = [base, odom]
         
+        gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+        corners, ids, _ = self.detector.detectMarkers(gray)
         
         if ids is not None and len(corners) > 0:
             ids = [ids[i][0] for i in range(len(ids))]
             for i in range(len(ids)):
+                
+                # Get rvec, tvec
                 rvec, tvec, _ = cv2.aruco.estimatePoseSingleMarkers(
                     corners[i], self.marker_length, self.matrix_coefficients, self.distortion_coefficients
                 )
+                
+                # if ids[i] not in self.aruco_marker_list:
+                #     continue
+                
                 if ids[i] != 3:
                     continue
-                #if (ids[i] != 3): continue
+                
                 R, _ = cv2.Rodrigues(rvec)
                 tvec = tvec.reshape(3, 1)
                 R_c2m = R.T
@@ -196,7 +188,7 @@ class MyTfBroadcaster(Node):
                 
                 t = TransformStamped()
                 
-                t.header.stamp = self.get_clock().now().to_msg()
+                t.header.stamp = time_stamp
         
                 t.header.frame_id = "odom"
                 t.child_frame_id = "base_footprint"
@@ -205,16 +197,18 @@ class MyTfBroadcaster(Node):
                 
                 # t.transform.translation.x = float(calibrated_translation[0]/100)
                 # t.transform.translation.y = float(calibrated_translation[1]/100)
+                t_map_marker = np.array(t_map_marker)
+                t_map_marker = self.ALPHA * self.prev_tvec + (1 - self.ALPHA) * t_map_marker
+                self.prev_tvec = t_map_marker
                 t.transform.translation.x = t_map_marker[0]
                 t.transform.translation.y = t_map_marker[1]
                 t.transform.translation.z = 0.0
                 
                 roll, pitch, yaw = euler_from_quaternion(quat)
-                
-                filterd_yaw = self.kf.update(yaw)
-                #yaw = self.pred_yaw * self.ALPHA + yaw * (1 - self.ALPHA)
-                # if not self.robot_status:
-                #     yaw = filterd_yaw
+
+                yaw = self.prev_yaw * self.ALPHA + yaw * (1 - self.ALPHA)
+                self.prev_yaw = yaw
+            
                 q2d = quaternion_from_euler(0, 0, yaw)
 
                 t.transform.rotation.x = float(q2d[0])
