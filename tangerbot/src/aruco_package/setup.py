@@ -14,6 +14,7 @@ setup(
         ('share/' + package_name, ['package.xml']),
         ('share/' + package_name + '/config', glob.glob(os.path.join('config', '*.npy'))),
         ('share/' + package_name + '/config', glob.glob(os.path.join('config', '*.yaml'))),
+        ('share/' + package_name + '/launch', glob.glob(os.path.join('launch', '*.launch.xml'))),
         ('share/' + package_name, glob.glob("*.xlsx")),
         ('share/' + package_name, glob.glob("*.pth")),
     ],

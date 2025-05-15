@@ -1,7 +1,11 @@
 string robot_id # if robot
 string user_id # if user
 uint8 type
-uint8 data
+<<<<<<< HEAD
+string data #which section
+=======
+string data
+>>>>>>> dev
 
 # type
 uint8 MOVETOSECTION = 0
@@ -11,3 +15,5 @@ uint8 RETURN = 3
 
 ---
 bool success
+
+

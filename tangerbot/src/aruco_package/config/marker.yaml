@@ -1,14 +1,41 @@
-marker15:
+home1:
   header:
     frame_id: "map"
-  child_frame_id: "marker15"
+  child_frame_id: "home1"
   transform:
     translation:
-      x: 1.96
-      y: -1.10
-      z: 0.0
+      x: 1.44
+      y: 0.0
+      z: 0.16
   euler:
     roll: 90
     pitch: 0
-    yaw: -90
+    yaw: 180
     
+home2:
+  header:
+    frame_id: "map"
+  child_frame_id: "home2"
+  transform:
+    translation:
+      x: 1.235
+      y: 0.0
+      z: 0.16
+  euler:
+    roll: 90
+    pitch: 0
+    yaw: 180
+
+home3:
+  header:
+    frame_id: "map"
+  child_frame_id: "home3"
+  transform:
+    translation:
+      x: 1.022
+      y: 0.0
+      z: 0.16
+  euler:
+    roll: 90
+    pitch: 0
+    yaw: 180
