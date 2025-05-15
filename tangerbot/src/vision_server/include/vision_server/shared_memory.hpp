@@ -27,7 +27,7 @@ namespace shm {
 
     // Network constants for UDP reception
     constexpr int PORT = 14555;
-    constexpr size_t MAX_PACKET = 1400;
+    constexpr size_t MAX_PACKET = 10240;
     constexpr uint8_t MAGIC_VALUE = 0xAA;
 
     // Shared memory slot for a single camera
@@ -39,7 +39,7 @@ namespace shm {
 
     // Entire shared segment for two cameras
     struct Segment {
-        Slot cam[2];  // cam[0]: left, cam[1]: right
+        Slot cam[3];  // cam[0]: left,      cam[1]: right,      cam[2]: picamera
     };
 
     // Open or create shared memory segment
