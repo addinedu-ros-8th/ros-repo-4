@@ -1,4 +1,4 @@
-#include "include/user_gui/tangerine.h"
+#include "user_gui/tangerine.h"
 #include "ui_tangerine.h"
 
 #include <QPixmap>
@@ -6,6 +6,10 @@
 #include <QDir>
 #include <QDebug>
 #include <QMouseEvent>
+#include <iostream>
+#include "user_gui/image_button.h"
+#include "user_gui/circular_progressbar.h"
+#include "user_gui/battery_widget.h"
 
 Tangerine::Tangerine(QWidget *parent) :
   QMainWindow(parent),
@@ -13,6 +17,8 @@ Tangerine::Tangerine(QWidget *parent) :
   map_received_(false)
 {
     ui->setupUi(this);
+    //ui->stackedWidget->setCurrentIndex(0);
+    ui->robot_widget->setCurrentIndex(1);
 
     /**********************************************
      * * Initialize ROS2 Node
@@ -23,14 +29,54 @@ Tangerine::Tangerine(QWidget *parent) :
     node_ = rclcpp::Node::make_shared("tangerine_gui_node");
 
     /**********************************************
+     * * Initialize ROS2 Variables
+    ***********************************************/
+
+    handle_command_client = node_->create_client<tangerbot_msgs::srv::HandleCommand>("handle_command");
+
+    /**********************************************
      * * Load the main image for the intro page
     ***********************************************/
     QString path = QDir::current().absolutePath();
     QString imagePath = path + "/src/gui/user_gui/ui/mainPic.png";
     //qDebug() << "Image Path: " << imagePath;
     QPixmap pixmap(imagePath); 
+    
     ui->label_introPic->setPixmap(pixmap);
     ui->label_introPic->setScaledContents(true);
+    ui->label_introPic->setSizePolicy(QSizePolicy::Ignored, QSizePolicy::Ignored);
+
+    loading = new QMovie(":/image/Loading_icon.gif");
+    ui->label_loading->setMovie(loading);
+    ui->label_loading->setScaledContents(true);
+
+    // Section selector
+    ImageButton *img_btn = new ImageButton(this, ui->robot_page_frame);
+    QVBoxLayout *layout = new QVBoxLayout(ui->robot_page_frame);
+    layout->addWidget(img_btn);
+    ui->robot_page_frame->setLayout(layout);
+    connect(img_btn, &ImageButton::call_confirmed, this, &Tangerine::handle_selection);
+    
+    // Workload progressbar
+    circular_progressbar = new CircularProgressBar(ui->progressbar_frame);
+    QVBoxLayout *progressbar_widget = new QVBoxLayout(ui->progressbar_frame);
+    progressbar_widget->addWidget(circular_progressbar);
+    circular_progressbar->set_margin(20);
+    circular_progressbar->set_percentage(50);
+
+    // Robot battery circular progressbar
+    battery_circular_progressbar = new CircularProgressBar(ui->battery_circular_progressbar_frame);
+    QVBoxLayout *battery_progressbar_widget2 = new QVBoxLayout(ui->battery_circular_progressbar_frame);
+    battery_progressbar_widget2->addWidget(battery_circular_progressbar);
+    battery_circular_progressbar->set_color(QColor(255, 255, 255), QColor(0x00, 0xFF, 0x7F));
+    battery_circular_progressbar->set_margin(20);
+    battery_circular_progressbar->set_percentage(100);
+
+    // Robot batter widget
+    battery_widget = new BatteryWidget(ui->battery_widget_frame);
+    QVBoxLayout *battery_progressbar_widget1 = new QVBoxLayout(ui->battery_widget_frame);
+    battery_progressbar_widget1->addWidget(battery_widget);
+    battery_widget->set_percentage(60);
 
     /**********************************************
      * * Navigate to Page
@@ -41,26 +87,34 @@ Tangerine::Tangerine(QWidget *parent) :
     connect(ui->btn_signinMain, &QPushButton::clicked, this, [=]() {ui->stackedWidget->setCurrentIndex(3);});
 
     connect(ui->btn_mmain, &QPushButton::clicked, this, [=]() {ui->stackedWidget->setCurrentIndex(3);});
-    connect(ui->btn_rmain, &QPushButton::clicked, this, [=]() {ui->stackedWidget->setCurrentIndex(3);});
+    connect(ui->btn_rmain, &QPushButton::clicked, this, [=]() {
+      ui->stackedWidget->setCurrentIndex(3);
+      ui->robot_widget->setCurrentIndex(current_robottab_index);
+    });
     connect(ui->btn_smain, &QPushButton::clicked, this, [=]() {ui->stackedWidget->setCurrentIndex(3);});
 
     connect(ui->btn_mrobot, &QPushButton::clicked, this, [=]() {ui->stackedWidget->setCurrentIndex(4);});
-    connect(ui->btn_rrobot, &QPushButton::clicked, this, [=]() {ui->stackedWidget->setCurrentIndex(4);});
+    connect(ui->btn_rrobot, &QPushButton::clicked, this, [=]() {
+      ui->stackedWidget->setCurrentIndex(4);
+      ui->robot_widget->setCurrentIndex(current_robottab_index);
+    });
     connect(ui->btn_srobot, &QPushButton::clicked, this, [=]() {ui->stackedWidget->setCurrentIndex(4);});
 
     connect(ui->btn_msettings, &QPushButton::clicked, this, [=]() {ui->stackedWidget->setCurrentIndex(5);});
-    connect(ui->btn_rsettings, &QPushButton::clicked, this, [=]() {ui->stackedWidget->setCurrentIndex(5);});
+    connect(ui->btn_rsettings, &QPushButton::clicked, this, [=]() {
+      ui->stackedWidget->setCurrentIndex(5);
+      ui->robot_widget->setCurrentIndex(current_robottab_index);
+    });
     connect(ui->btn_ssettings, &QPushButton::clicked, this, [=]() {ui->stackedWidget->setCurrentIndex(5);});
 
 
-    connect(ui->btn_call, &QPushButton::clicked, this, [=]() {ui->stackedWidget_2->setCurrentIndex(1);});
-    connect(ui->btn_vociecall, &QPushButton::clicked, this, [=]() {ui->stackedWidget_2->setCurrentIndex(3);});
+    connect(ui->btn_call, &QPushButton::clicked, this, [=]() {ui->robot_widget->setCurrentIndex(2);});
+    connect(ui->btn_vociecall, &QPushButton::clicked, this, [=]() {ui->robot_widget->setCurrentIndex(3);});
 
     /**********************************************
      * * Call Functions
     ***********************************************/
     goal_pub_ = node_->create_publisher<geometry_msgs::msg::PoseStamped>("/goal_pose", 10);
-    setupMapSubscriber();
 
 }
 
@@ -72,93 +126,55 @@ Tangerine::~Tangerine()
   rclcpp::shutdown();
 }
 
-
-/**********************************************
- * * Setup Map Subscriber
- **********************************************/
-void Tangerine::setupMapSubscriber(){
-  map_subscriber_ = node_->create_subscription<nav_msgs::msg::OccupancyGrid>("/map", 10,
-    [this](const nav_msgs::msg::OccupancyGrid::SharedPtr msg) {
-      map_received_ = true;
-      processMap(msg);
-      updateMonitoringMap();
-    });
+bool Tangerine::get_called_robot() {
+  return called_robot;
 }
 
-void Tangerine::processMap(const nav_msgs::msg::OccupancyGrid::SharedPtr msg){
+void Tangerine::handle_selection(QString section) {
+  using namespace std::chrono_literals;
 
-    // Convert OccupancyGrid to QImage
-    int width = msg->info.width;
-    int height = msg->info.height;
-    map_image_ = QImage(width, height, QImage::Format_RGB32);
-    map_metadata_ = msg->info;
-
-
-    for (int y = 0; y < height; ++y) {
-        for (int x = 0; x < width; ++x) {
-            int index = x + (height - y - 1) * width; // Flip y-axis for Qt
-            int8_t value = msg->data[index];
-            QRgb color;
-            if (value == -1) {
-                color = qRgb(128, 128, 128); // Unknown (gray)
-            } else if (value == 0) {
-                color = qRgb(255, 255, 255); // Free (white)
-            } else {
-                color = qRgb(0, 0, 0); // Occupied (black)
-            }
-            map_image_.setPixel(x, y, color);
-        }
-    }
-}
-
-void Tangerine::mousePressEvent(QMouseEvent *event) {
-    // Map from global window coords to map QLabel coords
-    QPoint labelTopLeft = ui->monitoringMap->mapToGlobal(QPoint(0, 0));
-    QPoint clickGlobal = event->globalPos();
-    QPoint clickOnLabel = clickGlobal - labelTopLeft;
-
-    if (ui->monitoringMap->rect().contains(clickOnLabel)) {
-        sendGoalFromClick(clickOnLabel);
-    }
-}
-
-
-void Tangerine::sendGoalFromClick(const QPoint &click_pos) {
-
-    if (!map_received_) return;
+  called_robot = true;
   
-    // Convert pixel to map coordinates
-    double resolution = map_metadata_.resolution;
-    double origin_x = map_metadata_.origin.position.x;
-    double origin_y = map_metadata_.origin.position.y;
+  auto request = std::make_shared<tangerbot_msgs::srv::HandleCommand::Request>();
+  request->user_id = user_id;
+  request->type = tangerbot_msgs::srv::HandleCommand::Request::MOVETOSECTION;
+  request->data = section.toStdString();
+  int try_count = 0;
   
-    int img_x = click_pos.x();
-    int img_y = click_pos.y();
-  
-    double map_x = origin_x + img_x * resolution;
-    double map_y = origin_y + (map_image_.height() - img_y) * resolution;
-  
-    geometry_msgs::msg::PoseStamped goal;
-    goal.header.frame_id = "map";
-    goal.header.stamp = node_->get_clock()->now();
-    goal.pose.position.x = map_x;
-    goal.pose.position.y = map_y;
-    goal.pose.position.z = 0.0;
-    goal.pose.orientation.w = 1.0; // no rotation
-  
-    goal_pub_->publish(goal);
-}
-  
+  while (!handle_command_client->wait_for_service(1s)) {
+      if (!rclcpp::ok()) {
+      RCLCPP_ERROR(rclcpp::get_logger("rclcpp"), "Interrupted while waiting for the service. Exiting.");
+      return;
+      }
+      try_count++;
+      if (try_count >= 5) {
+        QMessageBox::warning(this, "Failed", "Can't request service!");
+        return;
+      }
+      RCLCPP_INFO(rclcpp::get_logger("rclcpp"), "service not available, waiting again...");
+  }
 
-void Tangerine::updateMonitoringMap(){
-  if (map_received_) {
-    QPixmap pixmap = QPixmap::fromImage(map_image_);
-    ui->monitoringMap->setPixmap(pixmap);
-    ui->monitoringMap->setScaledContents(true);
+  auto result = handle_command_client->async_send_request(request);
+  
+  if (rclcpp::spin_until_future_complete(node_, result) ==
+    rclcpp::FutureReturnCode::SUCCESS)
+  {
+    RCLCPP_INFO(node_->get_logger(), "success");
+    ui->robot_widget->setCurrentIndex(4);
+    loading->start();
+    ui->btn_call->setText("Cancel");
+    ui->btn_call->setStyleSheet(
+      QString("QPushButton {"
+              "background-color: rgba(168, 168, 168, 255);"
+              "color: black;"
+              "}"
+              "QPushButton:hover {"
+              "background-color: rgba(168, 168, 168, 200);"
+              "}")
+    );
+  } else {
+    RCLCPP_ERROR(node_->get_logger(), "Failed to call service handle_command");
+    QMessageBox::warning(this, "Failed", "Can't request service!");
+    return;
   }
 }
-
-// void Tangerine::sendVoiceData(){
-    
-
-// }
