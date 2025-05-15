@@ -1,8 +1,11 @@
+#ifndef IMAGE_BUTTON_H
+#define IMAGE_BUTTON_H
+
 #include <QMainWindow>
 #include <QPainter>
-#include "include/user_gui/tangerine.h"
 #include <chrono>
 #include <QString>
+#include "user_gui/tangerine.h"
 
 struct DrawParams {
     int x;
@@ -45,3 +48,5 @@ private:
     bool section_6 = false;
     bool section_7 = false;
 };
+
+#endif

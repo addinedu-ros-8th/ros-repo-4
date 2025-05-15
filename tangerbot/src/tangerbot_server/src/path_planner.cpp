@@ -269,12 +269,11 @@ void PathPlanner::execute(const std::shared_ptr<GoalHandlePathPlanning> goal_han
     // Check if goal is done
     if (rclcpp::ok()) {
         result->robot_id = goal->robot_id;
-        result->path = vector<nav_msgs::msg::Path> {path_msg};
-        result->distance = vector<float> {distance};
+        result->path = path_msg;
+        result->distance = distance;
         goal_handle->succeed(result);
         RCLCPP_INFO(this->get_logger(), "Goal succeeded");
     }
-    cv::imwrite("path.jpg", img_show);
 }
 
 int main(int argc, char ** argv) {

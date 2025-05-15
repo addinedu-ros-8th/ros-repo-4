@@ -1,12 +1,13 @@
 import rclpy
 from rclpy.node import Node
-from std_msgs.msg import UInt8MultiArray, String  # 변경된 메시지 타입
+from std_msgs.msg import ByteMultiArray, String  # 변경된 메시지 타입
 import whisper
 import io
 import wave
 import numpy as np
 import librosa
 from tangerbot_msgs.msg import DecodedVoice
+from tangerbot_msgs.srv import HandleRawVoice
 
 # Whisper 모델 로딩 (최초 1회)
 whisper_model = whisper.load_model("base")
@@ -16,22 +17,21 @@ class AudioToTextNode(Node):
         super().__init__('audio_to_text_node')
 
         # 음성 스트림 수신 토픽
-        self.subscription = self.create_subscription(
-            UInt8MultiArray,  # 🔄 변경
-            'voice_command/audio_stream',
-            self.audio_callback,
-            10
+        self.voice_srv = self.create_service(
+            HandleRawVoice,
+            'handle_raw_voice',
+            self.audio_callback
         )
         
         # 텍스트 전송 퍼블리셔
         self.text_publisher = self.create_publisher(DecodedVoice, '/decoded_voice', 10)
 
-    def audio_callback(self, msg):
+    def audio_callback(self, request, response):
         try:
-            self.get_logger().info("🎧 오디오 바이트 수신")
+            self.get_logger().info("🎧 오디오 수신")
 
             # UInt8MultiArray -> BytesIO
-            audio_bytes = bytes(msg.data)
+            audio_bytes = bytes(request.audio)
             wav_io = io.BytesIO(audio_bytes)
 
             # Whisper를 사용하여 음성 텍스트 변환
@@ -40,11 +40,16 @@ class AudioToTextNode(Node):
             if recognized_text:
                 self.get_logger().info(f"📝 변환된 텍스트: {recognized_text}")
                 self.send_text_to_server(recognized_text)
+                response.text = recognized_text
             else:
                 self.get_logger().warn("❌ 텍스트 변환 실패 또는 음성 없음")
+                response.text = ""
 
         except Exception as e:
             self.get_logger().error(f"🚨 처리 중 오류: {e}")
+            response.text = ""
+        
+        return response
 
 
     def transcribe_audio(self, wav_io):
