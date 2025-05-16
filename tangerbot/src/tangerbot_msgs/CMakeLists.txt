@@ -26,6 +26,7 @@ rosidl_generate_interfaces(${PROJECT_NAME}
   "msg/LocalMap.msg"
   "srv/HandleCommand.srv"
   "srv/SetFollowMode.srv"
+  "srv/SetHumanPoseMode.srv"
   "srv/PathPlanning.srv"
   "srv/Speak.srv"
   "srv/HandleRawVoice.srv"
