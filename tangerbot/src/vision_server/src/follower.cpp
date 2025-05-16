@@ -9,6 +9,7 @@
 #include "rclcpp/rclcpp.hpp"
 #include "tangerbot_msgs/msg/local_map.hpp"
 #include <geometry_msgs/msg/point_stamped.hpp>
+#include "tangerbot_msgs/srv/set_follow_mode.hpp"
 
 #include <opencv2/core.hpp>
 #include <opencv2/imgproc.hpp>
@@ -38,7 +39,7 @@ using namespace std;
 
 class Follower : public rclcpp::Node {
 public:
-    Follower() : Node("follower_node"), shm_seg_(nullptr) {
+    Follower() : Node("follower_node"), shm_seg_(nullptr), active_(false), robot_id_(-1){
         declare_parameter<std::string>("calib_file", ament_index_cpp::get_package_share_directory("vision_server") + "/config/calibration_data.yml");
         get_parameter("calib_file", calib_file_);
 
@@ -47,12 +48,17 @@ public:
         if (!shm_seg_) {
             throw std::runtime_error("shared memory open failed");
         }
-
+        
         // 카메라 파라미터 로드
         loadCalibration();
 
         // SGM 초기화
         initSGM();
+
+        service_ = this->create_service<tangerbot_msgs::srv::SetFollowMode>(
+            "set_follower_mode",
+            std::bind(&Follower::handle_set_follower, this, std::placeholders::_1, std::placeholders::_2)
+        );
 
         // HumanPose 서브스크라이버
         human_sub_ = create_subscription<geometry_msgs::msg::PointStamped>(
@@ -64,10 +70,9 @@ public:
         // depthmap 생성
         timer_ = create_wall_timer(30ms, std::bind(&Follower::processOnce, this));
 
-        // 타임아웃 타이머
-        timeout_timer_ = create_wall_timer(50ms, std::bind(&Follower::check_timeout, this));
-
-        last_msg_time_ = this->now();
+        // 테스트
+        //robot_id_ = 0;
+        //active_ = true;
     }
 
     ~Follower() override {
@@ -76,7 +81,23 @@ public:
     }
 
 private:
+    void handle_set_follower(
+        const std::shared_ptr<tangerbot_msgs::srv::SetFollowMode::Request> req,
+        std::shared_ptr<tangerbot_msgs::srv::SetFollowMode::Response> res) {
+        string tmp = req->robot_id;        
+        robot_id_ = stoi(tmp.substr(5));
+        robot_id_--;
+        active_ = req->mode;        // 동작 on/off
+        res->success = true;
+        RCLCPP_INFO(get_logger(),
+          "[Follower] robot %u %s", robot_id_,
+          active_ ? "ENABLED" : "DISABLED"
+        );
+    }
+
     void point_callback(const geometry_msgs::msg::PointStamped::SharedPtr msg) {
+        if (!active_) return;
+
         RCLCPP_INFO(this->get_logger(), "Received point: (x: %.2f, y: %.2f, z: %.2f), frame_id: %s",
                     msg->point.x, msg->point.y, msg->point.z, msg->header.frame_id.c_str());
 
@@ -119,17 +140,6 @@ private:
         point_pub_->publish(transformed_msg);
         RCLCPP_INFO(this->get_logger(), "Published transformed point: (x: %.2f, y: %.2f, z: %.2f)",
                     transformed_msg.point.x, transformed_msg.point.y, transformed_msg.point.z);
-
-        // 타임스탬프 업데이트
-        last_msg_time_ = this->now();
-    }
-
-    void check_timeout() {
-        auto now = this->now();
-        auto elapsed = (now - last_msg_time_).seconds();
-        if (elapsed > 0.05) {
-            RCLCPP_WARN(this->get_logger(), "No valid /object_pixel for %.2f seconds", elapsed);
-        }
     }
 
     void loadCalibration() {
@@ -194,8 +204,8 @@ private:
         invalid_disp_ = sgm_->get_invalid_disparity();
     }
 
-    bool readSharedGray(int cam_idx, cv::Mat& gray) {
-        Slot& slot = shm_seg_->cam[cam_idx];
+    bool readSharedGray(int robot_id, int cam_idx, cv::Mat& gray) {
+        Slot& slot = shm_seg_->cam[robot_id][cam_idx];
         uint32_t size = slot.size.load(std::memory_order_acquire);
         if (size == 0 || size > MAX_IMG) return false;
 
@@ -208,9 +218,25 @@ private:
     }
 
     void processOnce() {
+        if (!active_) return;
+
         // 1) Grab two GRAY frames
         cv::Mat gray_l, gray_r;
-        if (!readSharedGray(0, gray_l) || !readSharedGray(1, gray_r)) return;
+
+
+        /////
+        if (!readSharedGray(robot_id_, 0, gray_l)) {
+            RCLCPP_WARN(get_logger(), "[Follower] readSharedGray left failed");
+            return;
+        }
+        if (!readSharedGray(robot_id_, 1, gray_r)) {
+            RCLCPP_WARN(get_logger(), "[Follower] readSharedGray right failed");
+            return;
+        }
+        /////
+
+
+        if (!readSharedGray(robot_id_, 0, gray_l) || !readSharedGray(robot_id_, 1, gray_r)) return;
 
         // 2) Rectify
         cv::remap(gray_l, gray_rect_l_, map1x_, map1y_, cv::INTER_LINEAR);
@@ -247,7 +273,6 @@ private:
     rclcpp::Subscription<geometry_msgs::msg::PointStamped>::SharedPtr human_sub_;
     rclcpp::Publisher<geometry_msgs::msg::PointStamped>::SharedPtr point_pub_;
     rclcpp::TimerBase::SharedPtr timer_;
-    rclcpp::TimerBase::SharedPtr timeout_timer_;
 
     // Calibration & Rectification
     std::string calib_file_;
@@ -265,8 +290,9 @@ private:
 
     Segment* shm_seg_;
 
-    // 타임아웃
-    rclcpp::Time last_msg_time_;
+    rclcpp::Service<tangerbot_msgs::srv::SetFollowMode>::SharedPtr service_;
+    bool active_;
+    uint8_t robot_id_;
 };
 
 int main(int argc, char** argv) {

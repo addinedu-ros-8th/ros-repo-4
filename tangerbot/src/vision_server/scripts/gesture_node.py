@@ -6,6 +6,11 @@ from std_msgs.msg import Int32
 import cv2
 import mediapipe as mp
 
+import numpy as np
+import posix_ipc
+import mmap
+import struct
+
 class GestureNode(Node):
     def __init__(self):
         super().__init__('gesture_node')
@@ -17,10 +22,61 @@ class GestureNode(Node):
         self.mp_drawing = mp.solutions.drawing_utils
 
         # OpenCV 초기화
-        self.cap = cv2.VideoCapture('udp://192.168.4.1:5000', cv2.CAP_FFMPEG)
         self.running = True  # 루프 중지 플래그
         self.timer = self.create_timer(0.05, self.process_frame)  # 20 FPS
 
+        # 공유 메모리 초기화
+        self.shm = posix_ipc.SharedMemory("/stereo_shm", flags=0)
+        self.seg_size = 3 * (4 + 4 + 56 + (1 << 20))
+        self.mapfile = mmap.mmap(self.shm.fd, self.seg_size, access = mmap.ACCESS_READ)
+        self.shm.close_fd()
+
+        # 디코딩 오프셋
+        self.OFFSET_FRAME_ID = 0
+        self.OFFSET_SIZE = 4
+        self.OFFSET_DATA = 64
+        self.MAX_IMG = 1 << 20
+        self.SLOT_SIZE = 8 + 56 + (1 << 20)
+
+        self.NUM_CAMERAS = 3
+        self.robot_idx = 0
+        self.camera_id = 0  # 왼쪽 카메라
+
+    def read_shared_memory(self):
+        BASE_OFFSET = (self.robot_idx * self.NUM_CAMERAS + self.camera_id) * self.SLOT_SIZE
+
+        self.mapfile.seek(BASE_OFFSET + self.OFFSET_FRAME_ID)
+        frame_id_1 = struct.unpack('I', self.mapfile.read(4))[0]
+
+        self.mapfile.seek(BASE_OFFSET + self.OFFSET_SIZE)
+        size = struct.unpack('I', self.mapfile.read(4))[0]
+
+        if size == 0 or size > self.MAX_IMG:
+            self.get_logger().warn(f"Invalid image size: {size}")
+            return None, None
+
+        self.mapfile.seek(BASE_OFFSET + self.OFFSET_DATA)
+        jpeg_bytes = self.mapfile.read(size)
+
+        self.mapfile.seek(BASE_OFFSET + self.OFFSET_FRAME_ID)
+        frame_id_2 = struct.unpack('I', self.mapfile.read(4))[0]
+
+        if frame_id_1 != frame_id_2:
+            self.get_logger().warn("Frame changed during read")
+            return None, None
+
+        if len(jpeg_bytes) < 2 or jpeg_bytes[:2].hex() != 'ffd8':
+            self.get_logger().error(f"Invalid JPEG header: {jpeg_bytes[:10].hex()}")
+            return None, None
+
+        img_np = np.frombuffer(jpeg_bytes, dtype=np.uint8)
+        img = cv2.imdecode(img_np, cv2.IMREAD_COLOR)
+        if img is None:
+            self.get_logger().warn("JPEG decoding failed")
+            return None, None
+
+        return img, frame_id_1
+    
     def classify_hand_gesture(self, landmarks):
         finger_tips = [8, 12, 16, 20]  # index, middle, ring, pinky
         finger_pips = [6, 10, 14, 18]
@@ -41,8 +97,8 @@ class GestureNode(Node):
         if not self.running:
             return
 
-        ret, frame = self.cap.read()
-        if not ret:
+        frame, frame_id = self.read_shared_memory()
+        if frame is None:
             self.get_logger().warn("카메라 프레임을 읽을 수 없습니다.")
             return
 
@@ -71,10 +127,11 @@ class GestureNode(Node):
             self.running = False
             self.get_logger().info("ESC 입력 감지. 노드 종료 예정.")
             self.timer.cancel()
+            self.destroy_node()
             rclpy.shutdown()
 
     def destroy_node(self):
-        self.cap.release()
+        self.mapfile.close()
         cv2.destroyAllWindows()
         super().destroy_node()
 

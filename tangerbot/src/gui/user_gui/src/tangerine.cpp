@@ -7,6 +7,8 @@
 #include <QDebug>
 #include <QMouseEvent>
 #include <iostream>
+#include <QThread>
+#include <QTimer>
 #include "user_gui/image_button.h"
 #include "user_gui/circular_progressbar.h"
 #include "user_gui/battery_widget.h"
@@ -16,9 +18,10 @@ Tangerine::Tangerine(QWidget *parent) :
   ui(new Ui::Tangerine),
   map_received_(false)
 {
+    using namespace std::placeholders;
     ui->setupUi(this);
     //ui->stackedWidget->setCurrentIndex(0);
-    ui->robot_widget->setCurrentIndex(5);
+    ui->robot_widget->setCurrentIndex(0);
 
     /**********************************************
      * * Initialize ROS2 Node
@@ -33,6 +36,9 @@ Tangerine::Tangerine(QWidget *parent) :
     ***********************************************/
 
     handle_command_client = node_->create_client<tangerbot_msgs::srv::HandleCommand>("handle_command");
+    call_state_sub = node_->create_subscription<tangerbot_msgs::msg::CallState>(
+      "/call_state", 10, std::bind(&Tangerine::call_state_callback, this, _1)
+    );
 
     /**********************************************
      * * Load the main image for the intro page
@@ -109,11 +115,6 @@ Tangerine::Tangerine(QWidget *parent) :
 
 
     connect(ui->btn_call, &QPushButton::clicked, this, [=]() {
-      
-      // Test, you must remove this
-      //**********************************************************
-      called_robot = true;
-      //**********************************************************
       if (called_robot) {
         QMessageBox::StandardButton reply;
         reply = QMessageBox::question(this, "Cancel", "Are you sure Cancel calling robot?", QMessageBox::Yes | QMessageBox::No);
@@ -133,10 +134,10 @@ Tangerine::Tangerine(QWidget *parent) :
     ***********************************************/
     goal_pub_ = node_->create_publisher<geometry_msgs::msg::PoseStamped>("/goal_pose", 10);
     
-    // Test, you must remove this
-    //**********************************************************
-    ui->remaining_time->setValue(50);
-    //**********************************************************
+    QThread* rosThread = QThread::create([=]() {
+    rclcpp::spin(node_);
+    });
+    rosThread->start();
 }
 
 
@@ -175,10 +176,11 @@ void Tangerine::handle_selection(QString section) {
       RCLCPP_INFO(rclcpp::get_logger("rclcpp"), "service not available, waiting again...");
   }
 
-  auto result = handle_command_client->async_send_request(request);
+  auto future_result = handle_command_client->async_send_request(request);
+
+  auto response = future_result.get();
   
-  if (rclcpp::spin_until_future_complete(node_, result) ==
-    rclcpp::FutureReturnCode::SUCCESS)
+  if (response->success)
   {
     RCLCPP_INFO(node_->get_logger(), "success");
     ui->robot_widget->setCurrentIndex(4);
@@ -192,10 +194,70 @@ void Tangerine::handle_selection(QString section) {
               "QPushButton:hover {"
               "background-color: rgba(168, 168, 168, 200);"
               "}")
+
     );
+    return;
   } else {
     RCLCPP_ERROR(node_->get_logger(), "Failed to call service handle_command");
     QMessageBox::warning(this, "Failed", "Can't request service!");
     return;
   }
+}
+
+void Tangerine::call_state_callback(const tangerbot_msgs::msg::CallState::SharedPtr msg) {
+  RCLCPP_INFO(node_->get_logger(), "call state");
+  if (!called_robot) return;
+  int eta = msg->time_remaining;
+  bool success = msg->success;
+  bool done = msg->done;
+
+  if (success) {
+    if (done) {
+      total_eta = -1;
+      QTimer::singleShot(0, this, [=]() {
+          ui->robot_widget->setCurrentIndex(1);
+      });
+    } else {
+      QTimer::singleShot(0, this, [=]() {
+          ui->robot_widget->setCurrentIndex(5);
+      });
+      if (total_eta == -1 && eta > 0) {
+        QTimer::singleShot(0, this, [=]() {
+          total_eta = eta;
+          ui->remaining_time->setMaximum(total_eta);
+          RCLCPP_INFO(node_->get_logger(), "total eta: %d", total_eta);
+          QString htmlText = QString(
+            "<html><head/><body>"
+            "<p align=\"center\">🩷</p>"
+            "<p align=\"center\">We found the robot for you!</p>"
+            "<p align=\"center\">Robot will arrive in <b>%1</b> seconds :)</p>"
+            "</body></html>"
+          ).arg(total_eta);
+          ui->label_23->setText(htmlText);
+        });
+      } else {
+        QTimer::singleShot(0, this, [=]() {
+          if ((total_eta - ui->remaining_time->value()) - eta == 1) {
+            ui->remaining_time->setValue(total_eta - eta);
+            QString htmlText = QString(
+              "<html><head/><body>"
+              "<p align=\"center\">🩷</p>"
+              "<p align=\"center\">We found the robot for you!</p>"
+              "<p align=\"center\">Robot will arrive in <b>%1</b> seconds :)</p>"
+              "</body></html>"
+            ).arg(eta);
+            ui->label_23->setText(htmlText);
+          } 
+          
+          RCLCPP_INFO(node_->get_logger(), "total eta: %d", total_eta);
+        });
+      }
+    }
+  } else {
+    QTimer::singleShot(0, this, [=]() {
+      ui->robot_widget->setCurrentIndex(1);
+    });
+    
+  }
+  
 }

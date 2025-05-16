@@ -2,8 +2,8 @@ string robot_id
 geometry_msgs/PoseStamped goal
 ---
 string robot_id
-nav_msgs/Path[] path
-float32[] distance
+nav_msgs/Path path
+float32 distance
 # Error codes
 uint16 NONE=0
 uint16 UNKNOWN=1
@@ -12,5 +12,4 @@ uint16 NO_PATH=2
 uint16 error_code
 string error_msg
 ---
-string robot_id
-float32 distance_remaining
+
