@@ -14,6 +14,7 @@
 #include "tangerbot_msgs/srv/handle_command.hpp"
 #include "tangerbot_msgs/srv/get_workload.hpp"
 #include "tangerbot_msgs/srv/set_follow_mode.hpp"
+#include "tangerbot_msgs/srv/set_human_pose_mode.hpp"
 #include "tangerbot_msgs/srv/set_state.hpp"
 #include "tangerbot_msgs/srv/redirect.hpp"
 
@@ -46,6 +47,7 @@ public:
     using SetFollowMode = tangerbot_msgs::srv::SetFollowMode;
     using SetState = tangerbot_msgs::srv::SetState;
     using Redirect = tangerbot_msgs::srv::Redirect;
+    using SetHumanPoseMode = tangerbot_msgs::srv::SetHumanPoseMode;
 
     //message
     using RobotState = tangerbot_msgs::msg::RobotState;
@@ -68,6 +70,7 @@ private:
     rclcpp::Client<SetFollowMode>::SharedPtr set_follow_mode_client_;
     rclcpp::Client<SetState>::SharedPtr set_state_client_;
     rclcpp::Client<Redirect>::SharedPtr redirect_client_;
+    rclcpp::Client<SetHumanPoseMode>::SharedPtr set_human_pose_mode_client_;
     rclcpp::Subscription<RobotState>::SharedPtr robot_states_;
     rclcpp::Subscription<std_msgs::msg::Bool>::SharedPtr obstacle_subscriber_;
     rclcpp::Publisher<geometry_msgs::msg::Twist>::SharedPtr cmd_vel_publisher_;

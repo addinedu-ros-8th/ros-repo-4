@@ -410,7 +410,7 @@ void Brain::handle_command_service_callback(
         std::thread(&Brain::move_to_section, this, goal_pose).detach();
     }
     
-    if (commad == request->FOLLOWING) {
+    if (command == request->FOLLOWING) {
         std::string robot_id = request->robot_id;
 
         bool set_state = set_robot_state(robot_id, 1, 1);  // Working, Following
