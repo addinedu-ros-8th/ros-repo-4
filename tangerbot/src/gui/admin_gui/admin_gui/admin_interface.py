@@ -14,8 +14,9 @@ from PyQt5.QtCore import Qt, QTimer
 from PyQt5.QtGui import QPainter, QPen, QColor, QPolygonF, QTransform
 from PyQt5.QtCore import QPointF
 import math
-import pymysql
-
+#import pymysql
+import mysql.connector
+from PyQt5.QtWidgets import QTableWidgetItem, QHeaderView
 class AdminInterface(Node, QMainWindow):
     def __init__(self):
         QMainWindow.__init__(self)
@@ -177,45 +178,45 @@ class AdminInterface(Node, QMainWindow):
         self.label_17.setPixmap(scaled)
         self.label_17.setScaledContents(True)
 
+
+
     def load_log_data(self):
         self.tableWidget.setRowCount(0)
         self.tableWidget.setColumnCount(6)
         self.tableWidget.setHorizontalHeaderLabels(['LogID','UserID', 'robot ID', 'section', 'command', 'time'])
-
+        conn = None
         try:
-            conn = pymysql.connect(
+            conn = mysql.connector.connect(
                 host='127.0.0.1',
                 port=3306,
                 user='root',
                 password='0119',
-                db='tgdb',
+                database='tgdb',
                 charset='utf8mb4'
             )
-
-            with conn.cursor() as cursor:
-                cursor.execute("SELECT * FROM Log ORDER BY LID")
-                results = cursor.fetchall()
-
-                print("[디버그] 결과 수:", len(results))
-                self.tableWidget.setRowCount(len(results))
-                for row_idx, row_data in enumerate(results):
-                    print(f"[디버그] row {row_idx}:", row_data)
-                    for col_idx, value in enumerate(row_data):
-                        self.tableWidget.setItem(row_idx, col_idx, QtWidgets.QTableWidgetItem(str(value)))
-
-            from PyQt5.QtWidgets import QHeaderView
+            cursor = conn.cursor()
+            cursor.execute("SELECT * FROM Log ORDER BY LID")
+            results = cursor.fetchall()
+            print("[디버그] 결과 수:", len(results))
+            self.tableWidget.setRowCount(len(results))
+            for row_idx, row_data in enumerate(results):
+                print(f"[디버그] row {row_idx}:", row_data)
+                for col_idx, value in enumerate(row_data):
+                    self.tableWidget.setItem(row_idx, col_idx, QTableWidgetItem(str(value)))
             self.tableWidget.resizeColumnsToContents()
             self.tableWidget.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
             self.tableWidget.repaint()
-
         except Exception as e:
             import traceback
             print("[에러] DB 연결 또는 쿼리 실패:", e)
             traceback.print_exc()
-
         finally:
-            if conn:
+            if conn is not None and conn.is_connected():
                 conn.close()
+
+
+
+
 
 
     def changePage(self, index, target_frame):
