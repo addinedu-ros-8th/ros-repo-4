@@ -38,9 +38,12 @@ class GestureNode(Node):
         self.MAX_IMG = 1 << 20
         self.SLOT_SIZE = 8 + 56 + (1 << 20)
 
+        self.NUM_CAMERAS = 3
+        self.robot_idx = 0
+        self.camera_id = 0  # 왼쪽 카메라
+
     def read_shared_memory(self):
-        camera_id = 2
-        BASE_OFFSET = camera_id * self.SLOT_SIZE
+        BASE_OFFSET = (self.robot_idx * self.NUM_CAMERAS + self.camera_id) * self.SLOT_SIZE
 
         self.mapfile.seek(BASE_OFFSET + self.OFFSET_FRAME_ID)
         frame_id_1 = struct.unpack('I', self.mapfile.read(4))[0]

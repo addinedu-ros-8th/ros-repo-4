@@ -39,6 +39,7 @@ Brain::Brain() : Node("brain") {
     set_follow_mode_client_ = this->create_client<SetFollowMode>("set_follow_mode");
     set_state_client_ = this->create_client<SetState>("set_state");
     redirect_client_ = this->create_client<Redirect>("redirect");
+    set_human_pose_mode_client_ = this->create_client<SetHumanPoseMode>("set_human_pose_mode");
 
     //Action Client
     path_planning_client_ = rclcpp_action::create_client<tangerbot_msgs::action::PathPlanning>(this, "path_planning");
@@ -377,6 +378,41 @@ void Brain::handle_command_service_callback(
     if (command == request->MOVETOSECTION){
         std::thread(&Brain::move_to_section, this, goal_pose).detach();
     }
+<<<<<<< HEAD
+    
+    if (commad == request->FOLLOWING) {
+        std::string robot_id = request->robot_id;
+
+        bool set_state = set_robot_state(robot_id, 1, 1);  // Working, Following
+        if (!set_state) {
+            RCLCPP_WARN(this->get_logger(), "Failed to update robot state to FOLLOWING");
+            response->success = false;
+            return;
+        }
+
+
+        auto follow_req = std::make_shared<SetFollowMode::Request>();
+        follow_req->robot_id = robot_id;
+        follow_req->mode = true;
+        
+        if (!set_follow_mode_client_->wait_for_service(std::chrono::seconds(2))) {
+            RCLCPP_ERROR(this->get_logger(), "set_follow_mode service not available");
+            response->success = false;
+            return;
+        }
+        
+        auto follow_future = set_follow_mode_client_->async_send_request(follow_req);
+        if (rclcpp::spin_until_future_complete(this->get_node_base_interface(), follow_future) != rclcpp::FutureReturnCode::SUCCESS) {
+            RCLCPP_ERROR(this->get_logger(), "Failed to call set_follow_mode service");
+            response->success = false;
+            return;
+        }
+
+
+
+    } 
+=======
+>>>>>>> dev
 
     response->success = true;
 }
@@ -393,5 +429,6 @@ int main(int argc, char ** argv) {
     executor.spin();
 
     rclcpp::shutdown();
+    
     return 0;
 }
