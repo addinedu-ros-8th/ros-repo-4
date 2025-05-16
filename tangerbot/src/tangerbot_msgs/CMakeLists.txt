@@ -22,7 +22,6 @@ rosidl_generate_interfaces(${PROJECT_NAME}
   "msg/PersonPose.msg"
   "msg/Gesture.msg"
   "msg/NavGoal.msg"
-  "msg/PathResult.msg"
   "msg/LocalMap.msg"
   "srv/HandleCommand.srv"
   "srv/SetFollowMode.srv"
