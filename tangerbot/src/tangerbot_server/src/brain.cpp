@@ -36,10 +36,11 @@ Brain::Brain() : Node("brain") {
 
     //Service Client
     get_workload_client_ = this->create_client<GetWorkload>("get_workload");
-    set_follow_mode_client_ = this->create_client<SetFollowMode>("set_follow_mode");
+    vision_set_follow_mode_client_ = this->create_client<SetFollowMode>("/vision/set_follow_mode");
+    tserver_set_follow_mode_client_ = this->create_client<SetFollowMode>("/tserver/set_follow_mode");
+    set_human_pose_mode_client_ = this->create_client<SetFollowMode>("/set_human_pose_follow_mode");
     set_state_client_ = this->create_client<SetState>("set_state");
     redirect_client_ = this->create_client<Redirect>("redirect");
-    set_human_pose_mode_client_ = this->create_client<SetHumanPoseMode>("set_human_pose_mode");
 
     //Action Client
     path_planning_client_ = rclcpp_action::create_client<tangerbot_msgs::action::PathPlanning>(this, "path_planning");
@@ -91,7 +92,6 @@ Brain::Brain() : Node("brain") {
     robot_state.robot_id = "robot1";
     robot_state.main_status = 0;
     robot_states_data_["robot1"] = robot_state;
-
 }
 
 Brain::~Brain(){
@@ -99,16 +99,10 @@ Brain::~Brain(){
 }
 
 
-
-
-
 void Brain::robot_state_callback(const RobotState::SharedPtr msg) 
 {
     robot_states_data_[msg->robot_id] = *msg;
 }
-
-
-
 
 
 void Brain::obstacle_callback(const std_msgs::msg::Bool::SharedPtr msg)
@@ -121,8 +115,6 @@ void Brain::obstacle_callback(const std_msgs::msg::Bool::SharedPtr msg)
         obstacle_detected_ = false;
     }
 }
-
-
 
 
 
@@ -354,15 +346,6 @@ void Brain::move_to_section(const geometry_msgs::msg::PoseStamped& goal_pose)
     }
 }
 
-
-
-
-
-
-
-
-
-
 void Brain::handle_command_service_callback( 
     const std::shared_ptr<tangerbot_msgs::srv::HandleCommand::Request> request,
     std::shared_ptr<tangerbot_msgs::srv::HandleCommand::Response> response) 
@@ -373,51 +356,52 @@ void Brain::handle_command_service_callback(
     //get the section pose
     goal_pose = section_poses_[request->data];
     
-   
 
     if (command == request->MOVETOSECTION){
         std::thread(&Brain::move_to_section, this, goal_pose).detach();
     }
-<<<<<<< HEAD
     
-    if (commad == request->FOLLOWING) {
+
+    if (command == request->FOLLOWING) {
         std::string robot_id = request->robot_id;
-
-        bool set_state = set_robot_state(robot_id, 1, 1);  // Working, Following
-        if (!set_state) {
-            RCLCPP_WARN(this->get_logger(), "Failed to update robot state to FOLLOWING");
-            response->success = false;
-            return;
-        }
-
-
         auto follow_req = std::make_shared<SetFollowMode::Request>();
         follow_req->robot_id = robot_id;
         follow_req->mode = true;
-        
-        if (!set_follow_mode_client_->wait_for_service(std::chrono::seconds(2))) {
-            RCLCPP_ERROR(this->get_logger(), "set_follow_mode service not available");
+
+        // 1. vision_set_follow_mode
+        RCLCPP_INFO(this->get_logger(), "Calling vision_set_follow_mode for robot %s", robot_id.c_str());
+        if (!vision_set_follow_mode_client_->wait_for_service(std::chrono::seconds(5))) {
+            RCLCPP_ERROR(this->get_logger(), "vision_set_follow_mode service not available.");
             response->success = false;
             return;
         }
-        
-        auto follow_future = set_follow_mode_client_->async_send_request(follow_req);
-        if (rclcpp::spin_until_future_complete(this->get_node_base_interface(), follow_future) != rclcpp::FutureReturnCode::SUCCESS) {
-            RCLCPP_ERROR(this->get_logger(), "Failed to call set_follow_mode service");
+        auto vision_result = vision_set_follow_mode_client_->async_send_request(follow_req);
+
+        // 2. set_human_pose_mode
+        RCLCPP_INFO(this->get_logger(), "Calling set_human_pose_mode for robot %s", robot_id.c_str());
+        if (!set_human_pose_mode_client_->wait_for_service(std::chrono::seconds(5))) {
+            RCLCPP_ERROR(this->get_logger(), "set_human_pose_mode service not available.");
             response->success = false;
             return;
         }
+        auto pose_result = set_human_pose_mode_client_->async_send_request(follow_req);
 
+        // 3. tserver_set_follow_mode
+        RCLCPP_INFO(this->get_logger(), "Calling tserver_set_follow_mode for robot %s", robot_id.c_str());
+        if (!tserver_set_follow_mode_client_->wait_for_service(std::chrono::seconds(5))) {
+            RCLCPP_ERROR(this->get_logger(), "tserver_set_follow_mode service not available.");
+            response->success = false;
+            return;
+        }
+        auto tserver_result = tserver_set_follow_mode_client_->async_send_request(follow_req);
 
-
-    } 
-=======
->>>>>>> dev
+        RCLCPP_INFO(this->get_logger(), "Following mode activated for robot: %s", robot_id.c_str());
+        response->success = true;
+        return;
+    }
 
     response->success = true;
 }
-
-
 
 int main(int argc, char ** argv) {
     rclcpp::init(argc, argv);
@@ -432,3 +416,4 @@ int main(int argc, char ** argv) {
     
     return 0;
 }
+

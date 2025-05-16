@@ -26,11 +26,7 @@
 #include <unordered_map>
 #include <string>
 
-
-
-
-class Brain : public rclcpp::Node {
-    
+class Brain : public rclcpp::Node {    
 
 public:
     //action
@@ -48,20 +44,20 @@ public:
     using RobotState = tangerbot_msgs::msg::RobotState;
     using Twist = geometry_msgs::msg::Twist;
 
-
     Brain();
     ~Brain();
     
     rclcpp::Client<GetWorkload>::SharedPtr get_workload_client_;
     float request_workload(const std::string &robot_id);
 
-
 private:
     rclcpp::Service<HandleCommand>::SharedPtr handle_command_server_;
     rclcpp_action::Client<tangerbot_msgs::action::PathPlanning>::SharedPtr path_planning_client_;
     rclcpp_action::Client<FollowPath>::SharedPtr follow_path_client_;
     rclcpp_action::ClientGoalHandle<nav2_msgs::action::FollowPath>::SharedPtr goal_handle_;
-    rclcpp::Client<SetFollowMode>::SharedPtr set_follow_mode_client_;
+    rclcpp::Client<SetFollowMode>::SharedPtr vision_set_follow_mode_client_;
+    rclcpp::Client<SetFollowMode>::SharedPtr tserver_set_follow_mode_client_;
+    rclcpp::Client<SetFollowMode>::SharedPtr set_human_pose_mode_client_;
     rclcpp::Client<SetState>::SharedPtr set_state_client_;
     rclcpp::Client<Redirect>::SharedPtr redirect_client_;
     rclcpp::Subscription<RobotState>::SharedPtr robot_states_;
