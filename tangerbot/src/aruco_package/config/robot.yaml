@@ -1,0 +1,3 @@
+robot:
+  aruco_marker: [2, 3, 4]
+  robot_id: ["robot1", "robot2", "robot3"]

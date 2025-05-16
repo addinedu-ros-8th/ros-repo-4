@@ -20,7 +20,6 @@ rosidl_generate_interfaces(${PROJECT_NAME}
   "msg/Gesture.msg"
   "msg/CallState.msg"
   "msg/LocalMap.msg"
-
   "srv/HandleCommand.srv"
   "srv/SetFollowMode.srv"
   "srv/SetHumanPoseMode.srv"

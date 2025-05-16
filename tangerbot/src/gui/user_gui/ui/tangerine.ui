@@ -1132,7 +1132,7 @@ color:black;
            <item row="0" column="0">
             <widget class="QFrame" name="frame_26">
              <property name="sizePolicy">
-              <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
+              <sizepolicy hsizetype="Ignored" vsizetype="Preferred">
                <horstretch>0</horstretch>
                <verstretch>1</verstretch>
               </sizepolicy>
@@ -1286,11 +1286,17 @@ QPushButton:hover {
                    <layout class="QGridLayout" name="gridLayout_14">
                     <item row="0" column="0">
                      <widget class="QStackedWidget" name="robot_widget">
+                      <property name="sizePolicy">
+                       <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
+                        <horstretch>0</horstretch>
+                        <verstretch>0</verstretch>
+                       </sizepolicy>
+                      </property>
                       <property name="layoutDirection">
                        <enum>Qt::LeftToRight</enum>
                       </property>
                       <property name="currentIndex">
-                       <number>1</number>
+                       <number>5</number>
                       </property>
                       <widget class="QWidget" name="page_2">
                        <property name="styleSheet">
@@ -1322,6 +1328,12 @@ QPushButton:hover {
                        </layout>
                       </widget>
                       <widget class="QWidget" name="page_6">
+                       <property name="sizePolicy">
+                        <sizepolicy hsizetype="Fixed" vsizetype="Preferred">
+                         <horstretch>0</horstretch>
+                         <verstretch>0</verstretch>
+                        </sizepolicy>
+                       </property>
                        <property name="styleSheet">
                         <string notr="true">background-color:#87CEFA</string>
                        </property>
@@ -1369,7 +1381,7 @@ QPushButton:hover {
                            <item>
                             <widget class="QFrame" name="battery_progressbar_frame">
                              <property name="sizePolicy">
-                              <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
+                              <sizepolicy hsizetype="Preferred" vsizetype="Minimum">
                                <horstretch>4</horstretch>
                                <verstretch>4</verstretch>
                               </sizepolicy>
@@ -1745,7 +1757,7 @@ color:black;
                          </widget>
                         </item>
                         <item>
-                         <widget class="QSlider" name="horizontalSlider">
+                         <widget class="QSlider" name="remaining_time">
                           <property name="sizePolicy">
                            <sizepolicy hsizetype="Expanding" vsizetype="Preferred">
                             <horstretch>0</horstretch>
@@ -1771,6 +1783,9 @@ color:black;
 	background: #FF90BB
 }
 </string>
+                          </property>
+                          <property name="maximum">
+                           <number>100</number>
                           </property>
                           <property name="orientation">
                            <enum>Qt::Horizontal</enum>
