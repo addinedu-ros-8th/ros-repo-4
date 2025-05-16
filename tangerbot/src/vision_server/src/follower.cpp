@@ -55,8 +55,9 @@ public:
         // SGM 초기화
         initSGM();
 
+        // 서버
         service_ = this->create_service<tangerbot_msgs::srv::SetFollowMode>(
-            "set_follower_mode",
+            "/vision/set_follow_mode",
             std::bind(&Follower::handle_set_follower, this, std::placeholders::_1, std::placeholders::_2)
         );
 
@@ -222,20 +223,6 @@ private:
 
         // 1) Grab two GRAY frames
         cv::Mat gray_l, gray_r;
-
-
-        /////
-        if (!readSharedGray(robot_id_, 0, gray_l)) {
-            RCLCPP_WARN(get_logger(), "[Follower] readSharedGray left failed");
-            return;
-        }
-        if (!readSharedGray(robot_id_, 1, gray_r)) {
-            RCLCPP_WARN(get_logger(), "[Follower] readSharedGray right failed");
-            return;
-        }
-        /////
-
-
         if (!readSharedGray(robot_id_, 0, gray_l) || !readSharedGray(robot_id_, 1, gray_r)) return;
 
         // 2) Rectify
