@@ -5,8 +5,9 @@ from rclpy.node import Node
 from PyQt5.QtWidgets import QApplication, QMainWindow
 from PyQt5.uic import loadUi
 import cv2
-from PyQt5.QtGui import QImage, QPixmap, QTransform
-from tangerbot_msgs.msg import RobotState, RobotPose  # 메시지 타입
+from PyQt5.QtGui import QImage, QPixmap
+from PyQt5.QtCore import *
+from tangerbot_msgs.msg import RobotState  # 메시지 타입
 from functools import partial
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.figure import Figure
@@ -35,6 +36,7 @@ class AdminInterface(Node, QMainWindow):
         # UI 파일 로드
         ui_file = os.path.join(os.path.dirname(__file__), '../ui/admin_interface.ui')
         loadUi(ui_file, self)
+
         
         self.show_map_image()
         
@@ -88,13 +90,14 @@ class AdminInterface(Node, QMainWindow):
             "핑키_3번": (self.label_12, self.label_29, self.label_15, self.label_31),
         }
         
-        
         self.figure = Figure(figsize=(4, 3))
         self.canvas = FigureCanvas(self.figure)
         self.canvas.setParent(self.label_32)
         self.canvas.move(0, 0)
         self.canvas.resize(self.label_32.size())
 
+        self.mask_image()
+        self.label_39.setlabel
         # ComboBox 이벤트 연결
         self.comboBox.currentTextChanged.connect(self.update_graph)
 
@@ -123,8 +126,25 @@ class AdminInterface(Node, QMainWindow):
 
     #     self.label_17.setPixmap(scaled_pixmap)
     #     self.label_17.setScaledContents(False)
+    
     def show_map_image(self):
         image_path = os.path.join(os.path.dirname(__file__), '../data/tangermap_2x.png')
+    # def worker_time(self):
+    #     cursor.excute("SELECT * FROM DailyWorkload WHERE UID, workload")
+
+
+    # worker_report profile label
+    def mask_image(self):
+        
+        image_files = ['duck.jpg', 'puppy.png', 'dog.jpg']  # 넣고 싶은 이미지 파일들
+        labels = [self.label_36, self.label_37, self.label_38]  # 대응하는 QLabel 객체들
+
+        for image_file, label in zip(image_files, labels):
+            image_path = os.path.join(os.path.dirname(__file__), '../data/', image_file)
+            pixmap = QPixmap(image_path)
+            if pixmap.isNull():
+                print(f"[에러] 이미지 로딩 실패: {image_path}")
+                continue
 
         pixmap = QPixmap(image_path)
         if pixmap.isNull():
@@ -256,11 +276,12 @@ class AdminInterface(Node, QMainWindow):
         self.label_17.setPixmap(pixmap_to_paint)
         self.label_17.setScaledContents(False)
 
+
+
     def load_log_data(self):
         self.tableWidget.setRowCount(0)
         self.tableWidget.setColumnCount(6)
         self.tableWidget.setHorizontalHeaderLabels(['LogID','UserID', 'robot ID', 'section', 'command', 'time'])
-
         conn = None
         try:
             conn = mysql.connector.connect(
@@ -271,7 +292,6 @@ class AdminInterface(Node, QMainWindow):
                 database='tgdb',
                 charset='utf8mb4'
             )
-
             cursor = conn.cursor()
             cursor.execute("SELECT * FROM Log ORDER BY LID")
             results = cursor.fetchall()
@@ -280,22 +300,21 @@ class AdminInterface(Node, QMainWindow):
             self.tableWidget.setRowCount(len(results))
             for row_idx, row_data in enumerate(results):
                 print(f"[디버그] row {row_idx}:", row_data)
+                
                 for col_idx, value in enumerate(row_data):
                     self.tableWidget.setItem(row_idx, col_idx, QTableWidgetItem(str(value)))
-
             self.tableWidget.resizeColumnsToContents()
             self.tableWidget.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
             self.tableWidget.repaint()
-
+            
         except Exception as e:
             import traceback
             print("[에러] DB 연결 또는 쿼리 실패:", e)
             traceback.print_exc()
-
+            
         finally:
             if conn is not None and conn.is_connected():
                 conn.close()
-
 
     def changePage(self, index, target_frame):
         self.stackedWidget.setCurrentIndex(index)
@@ -419,8 +438,7 @@ class AdminInterface(Node, QMainWindow):
             labels = [f'{i+1}일' for i in range(30)]
             data = [random.randint(10, 20) for _ in range(30)]
         elif period == "yearly":
-            labels = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-                      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+            labels = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
             data = [random.randint(50, 100) for _ in range(12)]
         else:
             labels = []

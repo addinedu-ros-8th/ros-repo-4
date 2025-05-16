@@ -1,4 +1,0 @@
-string[] robot_id
-int8[] end
----
-PathResult[] results

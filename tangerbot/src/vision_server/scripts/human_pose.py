@@ -2,6 +2,7 @@
 import rclpy
 from rclpy.node import Node
 from geometry_msgs.msg import PointStamped
+from tangerbot_msgs.srv import SetHumanPoseMode
 
 import cv2
 import torch
@@ -18,7 +19,13 @@ import time
 class HumanPose(Node):
     def __init__(self):
         super().__init__('human_pose')
+
+        self.active_ = False
+        self.robot_idx = 0
+        self.camera_id = 0  # 왼쪽 카메라
+
         self.pub = self.create_publisher(PointStamped, 'object_pixel', 10)
+        self.srv = self.create_service(SetHumanPoseMode, 'set_human_pose_mode', self.handle_set_mode)
 
         timer_period = 1.0 / 30.0
         self.publish_timer = self.create_timer(timer_period, self.publish_pixel)
@@ -33,7 +40,7 @@ class HumanPose(Node):
 
         # 공유 메모리 초기화
         self.shm = posix_ipc.SharedMemory("/stereo_shm", flags=0)
-        self.seg_size = 2 * (4 + 4 + 56 + (1 << 20))
+        self.seg_size = 3 * (4 + 4 + 56 + (1 << 20))
         self.mapfile = mmap.mmap(self.shm.fd, self.seg_size, access=mmap.ACCESS_READ)
         self.shm.close_fd()
 
@@ -44,6 +51,8 @@ class HumanPose(Node):
         self.MAX_IMG = 1 << 20
         self.SLOT_SIZE = 8 + 56 + (1 << 20)
 
+        self.NUM_CAMERAS = 3
+
         # 디텍션 상태
         self.current_frame = None
         self.current_frame_id = None
@@ -51,6 +60,14 @@ class HumanPose(Node):
         self.max_fails = 3
         self.last_detection_time = time.time()  # 마지막 유효 디텍션 시간
         self.no_detection_timeout = 8.0  # 8초 타임아웃
+
+    def handle_set_mode(self, request, response):
+        # "robot1" → 인덱스 0
+        name = request.robot_id
+        self.robot_idx = int(name.replace('robot','')) - 1
+        self.active_ = request.mode
+        response.success = True
+        return response
 
     def get_center_distance(self, x1, y1, x2, y2, img_w, img_h):
         box_cx = (x1 + x2) / 2
@@ -60,8 +77,7 @@ class HumanPose(Node):
         return np.hypot(box_cx - img_cx, box_cy - img_cy)
 
     def read_shared_memory(self):
-        camera_id = 0
-        BASE_OFFSET = camera_id * self.SLOT_SIZE
+        BASE_OFFSET = (self.robot_idx * self.NUM_CAMERAS + self.camera_id) * self.SLOT_SIZE
 
         self.mapfile.seek(BASE_OFFSET + self.OFFSET_FRAME_ID)
         frame_id_1 = struct.unpack('I', self.mapfile.read(4))[0]
@@ -185,6 +201,8 @@ class HumanPose(Node):
         return None
 
     def publish_pixel(self):
+        if not self.active_:
+            return
         # 디텍션 실패 지속 시간 체크
         current_time = time.time()
         if self.fail_count >= self.max_fails:
@@ -213,6 +231,9 @@ class HumanPose(Node):
         self.get_logger().debug(f'Published pixel: (x={u}, y={v})')
 
     def display_image(self):
+        if not self.active_:
+            return
+        
         start_time = time.time()
 
         frame, frame_id = self.read_shared_memory()
