@@ -14,20 +14,41 @@ from PyQt5.QtCore import Qt, QTimer
 from PyQt5.QtGui import QPainter, QPen, QColor, QPolygonF, QTransform
 from PyQt5.QtCore import QPointF
 import math
-import pymysql
+import mysql.connector
+import threading
+import numpy as np
+import socket
+import struct
+from PyQt5.QtWidgets import QTableWidgetItem, QHeaderView
+from PyQt5.QtCore import pyqtSignal
+import random
 
 class AdminInterface(Node, QMainWindow):
+    HEADER_FORMAT = '<BBBIHHI'  # little-endian: magic, robot_id, camera_id, frame_id, total_chunks, chunk_id, chunk_size
+    HEADER_SIZE = struct.calcsize(HEADER_FORMAT)
+    image_received = pyqtSignal(int, int, QPixmap)
+
     def __init__(self):
         QMainWindow.__init__(self)
         Node.__init__(self, 'admin_interface_gui')
-
+        
         # UI 파일 로드
         ui_file = os.path.join(os.path.dirname(__file__), '../ui/admin_interface.ui')
         loadUi(ui_file, self)
         
         self.show_map_image()
         
-        image_path = os.path.join(os.path.dirname(__file__), '../data/tangermap.png')
+        self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        self.sock.bind(('0.0.0.0', 14555))  # 예시 포트
+
+        self.buffers = {}  # {(robot_id, frame_id): [None]*total_chunks}
+        self.meta = {}     # {(robot_id, frame_id): (received_chunks, total_chunks)}
+
+        threading.Thread(target=self.receive_loop, daemon=True).start()
+        
+        self.image_received.connect(self.on_image_received)
+        
+        image_path = os.path.join(os.path.dirname(__file__), '../data/tangermap_2x_fix.png')
         self.original_map_pixmap = QPixmap(image_path)
         if self.original_map_pixmap.isNull():
             print("[에러] 지도 이미지 로딩 실패")
@@ -42,6 +63,7 @@ class AdminInterface(Node, QMainWindow):
         # 지도 + 로봇 위치 표시
         self.update_map_with_robots()
         
+        # log connect with db
         self.load_log_data()
 
         # 버튼 이미지 설정
@@ -65,10 +87,7 @@ class AdminInterface(Node, QMainWindow):
             "핑키_2번": (self.label_11, self.label_28, self.label_14, self.label_30),
             "핑키_3번": (self.label_12, self.label_29, self.label_15, self.label_31),
         }
-
-        # pinky cam 스트림 시작
-        # self.start_camera_streams()
-
+        
         
         self.figure = Figure(figsize=(4, 3))
         self.canvas = FigureCanvas(self.figure)
@@ -90,35 +109,65 @@ class AdminInterface(Node, QMainWindow):
             }}
         """)
         
+    # def show_map_image(self):
+    #     image_path = os.path.join(os.path.dirname(__file__), '../data/tangermap.xcf')
+    #     pixmap = QPixmap(image_path)
 
+    #     if pixmap.isNull():
+    #         print("[에러] 이미지 로딩 실패:", image_path)
+    #         return
+
+    #     # 라벨의 현재 크기를 기준으로 딱 맞게 리사이즈
+    #     label_size = self.label_17.size()
+    #     scaled_pixmap = pixmap.scaled(label_size, Qt.IgnoreAspectRatio, Qt.SmoothTransformation)
+
+    #     self.label_17.setPixmap(scaled_pixmap)
+    #     self.label_17.setScaledContents(False)
     def show_map_image(self):
-        image_path = os.path.join(os.path.dirname(__file__), '../data/tangermap.png')
-        pixmap = QPixmap(image_path)
+        image_path = os.path.join(os.path.dirname(__file__), '../data/tangermap_2x.png')
 
+        pixmap = QPixmap(image_path)
         if pixmap.isNull():
             print("[에러] 이미지 로딩 실패:", image_path)
             return
 
-        # label_17 크기에 맞게 조정
-        scaled_pixmap = pixmap.scaled(
-            self.label_17.width(), self.label_17.height(),
-            Qt.KeepAspectRatio, Qt.SmoothTransformation
-        )
+        target_width = 658
+        target_height = 291
 
+        self.label_17.setFixedSize(target_width, target_height)
+
+        scaled_pixmap = pixmap.scaled(self.label_17.size())
         self.label_17.setPixmap(scaled_pixmap)
-        self.label_17.setScaledContents(True)  # 또는 True로 두고 scaled로 안 해도 됨
-        
+        self.label_17.setScaledContents(True)  # 또는 False로 두되 크기 맞추기
+        self.label_17.repaint()
+            
     def ros_to_image_coords(self, x, y):
-        # map.yaml 참고 - 예시 origin, resolution
-        origin_x, origin_y = -10.0, 0.0   # 좌하단 원점 기준 좌표값
-        resolution = 0.05                 # m per pixel
+        origin_x, origin_y = 0.0, 0.0
+        resolution = 0.05
 
-        px = int((x - origin_x) / resolution)
-        py = int((y - origin_y) / resolution)
+        # 원본 지도 크기
+        img_width = self.original_map_pixmap.width()
+        img_height = self.original_map_pixmap.height()
 
-        # Qt 좌표계는 좌상단 원점이므로 y를 뒤집어줌
-        py = self.original_map_pixmap.height() - py
-        return px, py
+        # ROS 좌표 -> 픽셀 (원본 이미지 기준)
+        px = (x - origin_x) / resolution
+        py = (y - origin_y) / resolution
+        py = img_height - py  # y 반전
+
+        # label_17 크기에 맞게 스케일 조정
+        label_width = self.label_17.width()
+        label_height = self.label_17.height()
+
+        scale_x = label_width / img_width
+        scale_y = label_height / img_height
+
+        # Qt는 KeepAspectRatio로 표시하므로 scale_x, scale_y 중 작은 값 사용 권장
+        scale = min(scale_x, scale_y)
+
+        px_scaled = int(px * scale)
+        py_scaled = int(py * scale)
+
+        return px_scaled, py_scaled
 
     def quaternion_to_yaw(self, q):
         siny_cosp = 2 * (q.w * q.z + q.x * q.y)
@@ -151,59 +200,89 @@ class AdminInterface(Node, QMainWindow):
         self.update_map_with_robots()
 
     def update_map_with_robots(self):
-        pixmap = self.original_map_pixmap.copy()
-        painter = QPainter(pixmap)
+        label_w = self.label_17.width()
+        label_h = self.label_17.height()
+
+        # 1) 원본 이미지 한 번만 스케일링 (KeepAspectRatio)
+        scaled_pixmap = self.original_map_pixmap.scaled(
+            label_w, label_h,
+            Qt.KeepAspectRatio,
+            Qt.SmoothTransformation
+        )
+
+        # 2) 스케일된 이미지 복사해서 그리기용으로 만듦
+        pixmap_to_paint = QPixmap(scaled_pixmap)  # 복사본
+
+        painter = QPainter(pixmap_to_paint)
+        painter.setRenderHint(QPainter.Antialiasing)
+
         pen = QPen(QColor(255, 0, 0))
         pen.setWidth(3)
         painter.setPen(pen)
+
+        # 3) 여백 계산 (라벨 크기 - 이미지 크기)
+        margin_x = (label_w - scaled_pixmap.width()) / 2
+        margin_y = (label_h - scaled_pixmap.height()) / 2
+
+        # 4) 원본 이미지 크기 기준
+        orig_w = self.original_map_pixmap.width()
+        orig_h = self.original_map_pixmap.height()
+
+        # 스케일 비율 (KeepAspectRatio이므로 동일)
+        scale = scaled_pixmap.width() / orig_w  # 또는 height도 같음
+
+        origin_x, origin_y = 0.0, 0.0
+        resolution = 0.05
 
         for robot_id, pose in self.robot_poses.items():
             x = pose.position.x
             y = pose.position.y
             yaw = self.quaternion_to_yaw(pose.orientation)
-            px, py = self.ros_to_image_coords(x, y)
 
-            self.draw_robot_triangle(painter, px, py, yaw)
+            # ROS 좌표 → 원본 이미지 픽셀 좌표
+            px = (x - origin_x) / resolution
+            py = (y - origin_y) / resolution
+            py = orig_h - py  # y 반전
+
+            # 스케일 적용 후 여백 보정
+            px_scaled = int(px * scale + margin_x)
+            py_scaled = int(py * scale + margin_y)
+
+            self.draw_robot_triangle(painter, px_scaled, py_scaled, yaw)
 
         painter.end()
 
-        # 지도 + 로봇 위치 label_17에 표시 (크기 맞춤)
-        scaled = pixmap.scaled(
-            self.label_17.width(),
-            self.label_17.height(),
-            Qt.KeepAspectRatio,
-            Qt.SmoothTransformation
-        )
-        self.label_17.setPixmap(scaled)
-        self.label_17.setScaledContents(True)
+        # 5) 그려진 이미지 라벨에 세팅, 스케일링 다시 안 함
+        self.label_17.setPixmap(pixmap_to_paint)
+        self.label_17.setScaledContents(False)
 
     def load_log_data(self):
         self.tableWidget.setRowCount(0)
         self.tableWidget.setColumnCount(6)
         self.tableWidget.setHorizontalHeaderLabels(['LogID','UserID', 'robot ID', 'section', 'command', 'time'])
 
+        conn = None
         try:
-            conn = pymysql.connect(
+            conn = mysql.connector.connect(
                 host='127.0.0.1',
                 port=3306,
                 user='root',
                 password='0119',
-                db='tgdb',
+                database='tgdb',
                 charset='utf8mb4'
             )
 
-            with conn.cursor() as cursor:
-                cursor.execute("SELECT * FROM Log ORDER BY LID")
-                results = cursor.fetchall()
+            cursor = conn.cursor()
+            cursor.execute("SELECT * FROM Log ORDER BY LID")
+            results = cursor.fetchall()
 
-                print("[디버그] 결과 수:", len(results))
-                self.tableWidget.setRowCount(len(results))
-                for row_idx, row_data in enumerate(results):
-                    print(f"[디버그] row {row_idx}:", row_data)
-                    for col_idx, value in enumerate(row_data):
-                        self.tableWidget.setItem(row_idx, col_idx, QtWidgets.QTableWidgetItem(str(value)))
+            print("[디버그] 결과 수:", len(results))
+            self.tableWidget.setRowCount(len(results))
+            for row_idx, row_data in enumerate(results):
+                print(f"[디버그] row {row_idx}:", row_data)
+                for col_idx, value in enumerate(row_data):
+                    self.tableWidget.setItem(row_idx, col_idx, QTableWidgetItem(str(value)))
 
-            from PyQt5.QtWidgets import QHeaderView
             self.tableWidget.resizeColumnsToContents()
             self.tableWidget.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
             self.tableWidget.repaint()
@@ -214,7 +293,7 @@ class AdminInterface(Node, QMainWindow):
             traceback.print_exc()
 
         finally:
-            if conn:
+            if conn is not None and conn.is_connected():
                 conn.close()
 
 
@@ -231,11 +310,10 @@ class AdminInterface(Node, QMainWindow):
         battery = int(msg.battery)
 
         if robot_id not in self.status_labels:
-            return  # 알 수 없는 로봇 ID면 무시
+            return
 
         status_dot, status_text_label, battery_dot, battery_text = self.status_labels[robot_id]
 
-        # 메인 상태 색상
         main_status_map = {
             0: ('대기 중', '#3399ff'),
             1: ('작업 중', '#00cc44'),
@@ -245,7 +323,6 @@ class AdminInterface(Node, QMainWindow):
         status_dot.setText("●")
         status_dot.setStyleSheet(f"color: {color}; font-size: 16px;")
 
-        # 이동 상태 텍스트
         motion_status_map = {
             0: "이동 중",
             1: "따라가는 중",
@@ -255,7 +332,6 @@ class AdminInterface(Node, QMainWindow):
         motion_text = motion_status_map.get(motion_status, "알 수 없음")
         status_text_label.setText(motion_text)
 
-        # 배터리 상태
         if battery >= 60:
             battery_color = "#00cc44"
         elif battery >= 20:
@@ -267,48 +343,72 @@ class AdminInterface(Node, QMainWindow):
         battery_dot.setStyleSheet(f"color: {battery_color}; font-size: 16px;")
         battery_text.setText(f"{battery}%")
 
-    def start_camera_streams(self):
-        self.streams = {
-            '핑키_1번': ('udp://192.168.4.1:5000', self.label_22),
-            '핑키_2번': ('udp://192.168.4.2:5000', self.label_24),
-            '핑키_3번': ('udp://192.168.4.3:5000', self.label_26),
-        }
+    def receive_loop(self):
+        while True:
+            try:
+                data, _ = self.sock.recvfrom(14555)
+                header = data[:self.HEADER_SIZE]
+                magic, robot_id, camera_id, frame_id, total_chunks, chunk_id, chunk_size = struct.unpack(self.HEADER_FORMAT, header)
 
-        self.captures = {}
-        self.camera_timers = {}
+                if magic != 0xAA:
+                    continue
 
-        for robot_name, (url, label) in self.streams.items():
-            cap = cv2.VideoCapture(url, cv2.CAP_FFMPEG)
-            self.captures[robot_name] = cap
+                chunk_data = data[self.HEADER_SIZE:self.HEADER_SIZE + chunk_size]
+                key = (robot_id, frame_id)
 
-            if not cap.isOpened():
-                print(f"[경고] {robot_name} 카메라 스트림 열 수 없음: {url}")
-                continue
+                if key not in self.buffers:
+                    self.buffers[key] = [None] * total_chunks
+                    self.meta[key] = [0, total_chunks]
 
-            timer = QTimer(self)
-            timer.timeout.connect(self.make_frame_updater(robot_name, cap, label))
-            timer.start(50)
-            self.camera_timers[robot_name] = timer
+                if self.buffers[key][chunk_id] is None:
+                    self.buffers[key][chunk_id] = chunk_data
+                    self.meta[key][0] += 1
 
-    def make_frame_updater(self, name, cap, label):
-        def update():
-            if cap.isOpened():
-                ret, frame = cap.read()
-                if ret:
-                    try:
-                        frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-                        h, w, ch = frame.shape
-                        bytes_per_line = ch * w
+                if self.meta[key][0] == total_chunks:
+                    full_data = b''.join(self.buffers[key])
+                    del self.buffers[key]
+                    del self.meta[key]
+
+                    nparr = np.frombuffer(full_data, np.uint8)
+                    frame = cv2.imdecode(nparr, cv2.IMREAD_UNCHANGED)
+                    if frame is None:
+                        print(f"[에러] OpenCV 디코딩 실패: robot {robot_id} cam {camera_id}")
+                        continue
+
+                    frame = frame.copy()
+                    h, w = frame.shape[:2]
+                    ch = frame.shape[2] if len(frame.shape) == 3 else 1
+                    bytes_per_line = ch * w
+
+                    if ch == 4:
+                        frame = cv2.cvtColor(frame, cv2.COLOR_BGRA2RGB)
+                        qimg = QImage(frame.data, w, h, bytes_per_line, QImage.Format_ARGB32)
+                    elif ch == 3:
                         qimg = QImage(frame.data, w, h, bytes_per_line, QImage.Format_RGB888)
-                        pixmap = QPixmap.fromImage(qimg)
-                        label.setPixmap(pixmap.scaled(label.width(), label.height()))
-                    except Exception as e:
-                        print(f"[에러] {name} 프레임 처리 실패: {e}")
-        return update
-    
+                    else:
+                        print(f"[에러] 알 수 없는 채널 수: {ch}")
+                        continue
+
+                    qimg = qimg.copy()
+                    pixmap = QPixmap.fromImage(qimg)
+                    self.image_received.emit(robot_id, camera_id, pixmap)
+
+            except socket.timeout:
+                continue
+            except Exception as e:
+                print(f"[에러] 이미지 처리 실패: robot {robot_id} cam {camera_id}, 오류: {e}")
+
+    def on_image_received(self, robot_id, cam_id, pixmap):
+        label_map = {
+            1: self.label_22,
+            2: self.label_24,
+            3: self.label_26
+        }
+        label = label_map.get(robot_id)
+        if label:
+            label.setPixmap(pixmap.scaled(label.size(), Qt.KeepAspectRatio))
+
     def update_graph(self, period):
-        # 테스트용 데이터
-        import random
         self.figure.clear()
         ax = self.figure.add_subplot(111)
 
@@ -320,7 +420,7 @@ class AdminInterface(Node, QMainWindow):
             data = [random.randint(10, 20) for _ in range(30)]
         elif period == "yearly":
             labels = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-                    'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+                      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
             data = [random.randint(50, 100) for _ in range(12)]
         else:
             labels = []
@@ -328,7 +428,7 @@ class AdminInterface(Node, QMainWindow):
 
         ax.bar(labels, data, color="#3399ff")
         ax.set_title(f"{period.capitalize()} 수확량")
-        ax.set_ylabel("수확량 (단위)")
+        ax.set_ylabel("수확량 (kg)")
         ax.set_xlabel("기간")
         ax.tick_params(axis='x', labelrotation=45)
         self.canvas.draw()
