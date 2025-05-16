@@ -363,7 +363,7 @@
              <item row="0" column="0">
               <widget class="QStackedWidget" name="stackedWidget">
                <property name="currentIndex">
-                <number>1</number>
+                <number>3</number>
                </property>
                <widget class="QWidget" name="page1">
                 <layout class="QGridLayout" name="gridLayout_4">
@@ -408,12 +408,6 @@
                          <layout class="QVBoxLayout" name="verticalLayout_10">
                           <item>
                            <widget class="QLabel" name="label_17">
-                            <property name="minimumSize">
-                             <size>
-                              <width>658</width>
-                              <height>50</height>
-                             </size>
-                            </property>
                             <property name="baseSize">
                              <size>
                               <width>0</width>
@@ -1130,6 +1124,49 @@ color:black;
                          <property name="frameShadow">
                           <enum>QFrame::Raised</enum>
                          </property>
+                         <widget class="QLabel" name="label_33">
+                          <property name="geometry">
+                           <rect>
+                            <x>-30</x>
+                            <y>0</y>
+                            <width>531</width>
+                            <height>171</height>
+                           </rect>
+                          </property>
+                          <property name="styleSheet">
+                           <string notr="true">background-color:white
+</string>
+                          </property>
+                          <property name="text">
+                           <string>TextLabel</string>
+                          </property>
+                         </widget>
+                         <widget class="QLabel" name="label_36">
+                          <property name="geometry">
+                           <rect>
+                            <x>30</x>
+                            <y>40</y>
+                            <width>91</width>
+                            <height>81</height>
+                           </rect>
+                          </property>
+                          <property name="text">
+                           <string/>
+                          </property>
+                         </widget>
+                         <widget class="QLabel" name="label_39">
+                          <property name="geometry">
+                           <rect>
+                            <x>190</x>
+                            <y>40</y>
+                            <width>251</width>
+                            <height>81</height>
+                           </rect>
+                          </property>
+                          <property name="text">
+                           <string/>
+                          </property>
+                         </widget>
                         </widget>
                        </item>
                        <item>
@@ -1140,6 +1177,48 @@ color:black;
                          <property name="frameShadow">
                           <enum>QFrame::Raised</enum>
                          </property>
+                         <widget class="QLabel" name="label_34">
+                          <property name="geometry">
+                           <rect>
+                            <x>-20</x>
+                            <y>-30</y>
+                            <width>511</width>
+                            <height>201</height>
+                           </rect>
+                          </property>
+                          <property name="styleSheet">
+                           <string notr="true">background-color:white</string>
+                          </property>
+                          <property name="text">
+                           <string/>
+                          </property>
+                         </widget>
+                         <widget class="QLabel" name="label_37">
+                          <property name="geometry">
+                           <rect>
+                            <x>30</x>
+                            <y>30</y>
+                            <width>91</width>
+                            <height>81</height>
+                           </rect>
+                          </property>
+                          <property name="text">
+                           <string/>
+                          </property>
+                         </widget>
+                         <widget class="QLabel" name="label_40">
+                          <property name="geometry">
+                           <rect>
+                            <x>190</x>
+                            <y>30</y>
+                            <width>251</width>
+                            <height>81</height>
+                           </rect>
+                          </property>
+                          <property name="text">
+                           <string/>
+                          </property>
+                         </widget>
                         </widget>
                        </item>
                        <item>
@@ -1150,6 +1229,48 @@ color:black;
                          <property name="frameShadow">
                           <enum>QFrame::Raised</enum>
                          </property>
+                         <widget class="QLabel" name="label_35">
+                          <property name="geometry">
+                           <rect>
+                            <x>-20</x>
+                            <y>-30</y>
+                            <width>511</width>
+                            <height>201</height>
+                           </rect>
+                          </property>
+                          <property name="styleSheet">
+                           <string notr="true">background-color:white</string>
+                          </property>
+                          <property name="text">
+                           <string/>
+                          </property>
+                         </widget>
+                         <widget class="QLabel" name="label_38">
+                          <property name="geometry">
+                           <rect>
+                            <x>30</x>
+                            <y>30</y>
+                            <width>91</width>
+                            <height>81</height>
+                           </rect>
+                          </property>
+                          <property name="text">
+                           <string/>
+                          </property>
+                         </widget>
+                         <widget class="QLabel" name="label_41">
+                          <property name="geometry">
+                           <rect>
+                            <x>190</x>
+                            <y>30</y>
+                            <width>251</width>
+                            <height>81</height>
+                           </rect>
+                          </property>
+                          <property name="text">
+                           <string/>
+                          </property>
+                         </widget>
                         </widget>
                        </item>
                       </layout>
@@ -1163,6 +1284,30 @@ color:black;
                       <property name="frameShadow">
                        <enum>QFrame::Raised</enum>
                       </property>
+                      <widget class="QTableWidget" name="tableWidget_2">
+                       <property name="geometry">
+                        <rect>
+                         <x>30</x>
+                         <y>30</y>
+                         <width>441</width>
+                         <height>431</height>
+                        </rect>
+                       </property>
+                       <property name="styleSheet">
+                        <string notr="true">background-color:white;
+color:black;</string>
+                       </property>
+                       <column>
+                        <property name="text">
+                         <string>worker</string>
+                        </property>
+                       </column>
+                       <column>
+                        <property name="text">
+                         <string>work time</string>
+                        </property>
+                       </column>
+                      </widget>
                      </widget>
                     </item>
                    </layout>

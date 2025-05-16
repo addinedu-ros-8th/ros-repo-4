@@ -5,16 +5,26 @@ from rclpy.node import Node
 from PyQt5.QtWidgets import QApplication, QMainWindow
 from PyQt5.uic import loadUi
 import cv2
-from PyQt5.QtGui import QImage, QPixmap, QTransform
-from tangerbot_msgs.msg import RobotState, RobotPose  # 메시지 타입
+from PyQt5.QtGui import QImage, QPixmap
+from PyQt5.QtCore import *
+from tangerbot_msgs.msg import RobotState  # 메시지 타입
 from functools import partial
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.figure import Figure
-from PyQt5.QtCore import Qt, QTimer
-from PyQt5.QtGui import QPainter, QPen, QColor, QPolygonF, QTransform
-from PyQt5.QtCore import QPointF
-import math
-import pymysql
+import mysql.connector
+
+# mydb = mysql.connector.connect(
+#     host = "localhost",
+#     user = "root",
+#     passwd = "0000"
+#     database = "tangerine"
+# )
+# conn = mydb.cursor()
+
+# cursor = conn.cursor()
+# results = cursor.fetchall()
+
+
 
 class AdminInterface(Node, QMainWindow):
     def __init__(self):
@@ -24,25 +34,6 @@ class AdminInterface(Node, QMainWindow):
         # UI 파일 로드
         ui_file = os.path.join(os.path.dirname(__file__), '../ui/admin_interface.ui')
         loadUi(ui_file, self)
-        
-        self.show_map_image()
-        
-        image_path = os.path.join(os.path.dirname(__file__), '../data/tangermap.png')
-        self.original_map_pixmap = QPixmap(image_path)
-        if self.original_map_pixmap.isNull():
-            print("[에러] 지도 이미지 로딩 실패")
-            return
-
-        # 로봇 위치 저장 dict {robot_id: Pose}
-        self.robot_poses = {}
-
-        # ROS 구독: RobotPose 메시지
-        self.create_subscription(RobotPose, '/robot_pose', self.handle_robot_pose, 10)
-
-        # 지도 + 로봇 위치 표시
-        self.update_map_with_robots()
-        
-        self.load_log_data()
 
         # 버튼 이미지 설정
         base_dir = os.path.dirname(__file__)
@@ -68,7 +59,6 @@ class AdminInterface(Node, QMainWindow):
 
         # pinky cam 스트림 시작
         # self.start_camera_streams()
-
         
         self.figure = Figure(figsize=(4, 3))
         self.canvas = FigureCanvas(self.figure)
@@ -76,6 +66,8 @@ class AdminInterface(Node, QMainWindow):
         self.canvas.move(0, 0)
         self.canvas.resize(self.label_32.size())
 
+        self.mask_image()
+        self.label_39.setlabel
         # ComboBox 이벤트 연결
         self.comboBox.currentTextChanged.connect(self.update_graph)
 
@@ -89,134 +81,29 @@ class AdminInterface(Node, QMainWindow):
                 border: none;
             }}
         """)
+    # def worker_time(self):
+    #     cursor.excute("SELECT * FROM DailyWorkload WHERE UID, workload")
+
+
+    # worker_report profile label
+    def mask_image(self):
         
+        image_files = ['duck.jpg', 'puppy.png', 'dog.jpg']  # 넣고 싶은 이미지 파일들
+        labels = [self.label_36, self.label_37, self.label_38]  # 대응하는 QLabel 객체들
 
-    def show_map_image(self):
-        image_path = os.path.join(os.path.dirname(__file__), '../data/tangermap.png')
-        pixmap = QPixmap(image_path)
+        for image_file, label in zip(image_files, labels):
+            image_path = os.path.join(os.path.dirname(__file__), '../data/', image_file)
+            pixmap = QPixmap(image_path)
+            if pixmap.isNull():
+                print(f"[에러] 이미지 로딩 실패: {image_path}")
+                continue
 
-        if pixmap.isNull():
-            print("[에러] 이미지 로딩 실패:", image_path)
-            return
-
-        # label_17 크기에 맞게 조정
-        scaled_pixmap = pixmap.scaled(
-            self.label_17.width(), self.label_17.height(),
-            Qt.KeepAspectRatio, Qt.SmoothTransformation
-        )
-
-        self.label_17.setPixmap(scaled_pixmap)
-        self.label_17.setScaledContents(True)  # 또는 True로 두고 scaled로 안 해도 됨
-        
-    def ros_to_image_coords(self, x, y):
-        # map.yaml 참고 - 예시 origin, resolution
-        origin_x, origin_y = -10.0, 0.0   # 좌하단 원점 기준 좌표값
-        resolution = 0.05                 # m per pixel
-
-        px = int((x - origin_x) / resolution)
-        py = int((y - origin_y) / resolution)
-
-        # Qt 좌표계는 좌상단 원점이므로 y를 뒤집어줌
-        py = self.original_map_pixmap.height() - py
-        return px, py
-
-    def quaternion_to_yaw(self, q):
-        siny_cosp = 2 * (q.w * q.z + q.x * q.y)
-        cosy_cosp = 1 - 2 * (q.y * q.y + q.z * q.z)
-        return math.atan2(siny_cosp, cosy_cosp)
-
-    def draw_robot_triangle(self, painter, x, y, yaw):
-        size = 15
-        points = [
-            QPointF(0, -size),
-            QPointF(size / 2, size / 2),
-            QPointF(-size / 2, size / 2)
-        ]
-
-        rotated_points = []
-        for p in points:
-            rx = p.x() * math.cos(yaw) - p.y() * math.sin(yaw)
-            ry = p.x() * math.sin(yaw) + p.y() * math.cos(yaw)
-            rotated_points.append(QPointF(x + rx, y + ry))
-
-        polygon = QPolygonF(rotated_points)
-        painter.setBrush(QColor(255, 0, 0, 180))  # 반투명 빨강
-        painter.drawPolygon(polygon)
-
-    def handle_robot_pose(self, msg):
-        # ROS RobotPose 메시지: msg.robot_id, msg.pose (PoseStamped)
-        self.robot_poses[msg.robot_id] = msg.pose.pose
-
-        # 갱신된 위치로 지도 업데이트
-        self.update_map_with_robots()
-
-    def update_map_with_robots(self):
-        pixmap = self.original_map_pixmap.copy()
-        painter = QPainter(pixmap)
-        pen = QPen(QColor(255, 0, 0))
-        pen.setWidth(3)
-        painter.setPen(pen)
-
-        for robot_id, pose in self.robot_poses.items():
-            x = pose.position.x
-            y = pose.position.y
-            yaw = self.quaternion_to_yaw(pose.orientation)
-            px, py = self.ros_to_image_coords(x, y)
-
-            self.draw_robot_triangle(painter, px, py, yaw)
-
-        painter.end()
-
-        # 지도 + 로봇 위치 label_17에 표시 (크기 맞춤)
-        scaled = pixmap.scaled(
-            self.label_17.width(),
-            self.label_17.height(),
-            Qt.KeepAspectRatio,
-            Qt.SmoothTransformation
-        )
-        self.label_17.setPixmap(scaled)
-        self.label_17.setScaledContents(True)
-
-    def load_log_data(self):
-        self.tableWidget.setRowCount(0)
-        self.tableWidget.setColumnCount(6)
-        self.tableWidget.setHorizontalHeaderLabels(['LogID','UserID', 'robot ID', 'section', 'command', 'time'])
-
-        try:
-            conn = pymysql.connect(
-                host='127.0.0.1',
-                port=3306,
-                user='root',
-                password='0119',
-                db='tgdb',
-                charset='utf8mb4'
+            scaled_pixmap = pixmap.scaled(
+                label.width(), label.height(),
+                Qt.KeepAspectRatio, Qt.SmoothTransformation
             )
-
-            with conn.cursor() as cursor:
-                cursor.execute("SELECT * FROM Log ORDER BY LID")
-                results = cursor.fetchall()
-
-                print("[디버그] 결과 수:", len(results))
-                self.tableWidget.setRowCount(len(results))
-                for row_idx, row_data in enumerate(results):
-                    print(f"[디버그] row {row_idx}:", row_data)
-                    for col_idx, value in enumerate(row_data):
-                        self.tableWidget.setItem(row_idx, col_idx, QtWidgets.QTableWidgetItem(str(value)))
-
-            from PyQt5.QtWidgets import QHeaderView
-            self.tableWidget.resizeColumnsToContents()
-            self.tableWidget.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
-            self.tableWidget.repaint()
-
-        except Exception as e:
-            import traceback
-            print("[에러] DB 연결 또는 쿼리 실패:", e)
-            traceback.print_exc()
-
-        finally:
-            if conn:
-                conn.close()
-
+            label.setPixmap(scaled_pixmap)
+            label.setScaledContents(True)
 
     def changePage(self, index, target_frame):
         self.stackedWidget.setCurrentIndex(index)
