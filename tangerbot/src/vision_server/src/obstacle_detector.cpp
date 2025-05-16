@@ -215,8 +215,8 @@ private:
 	}
 
 	// Shared Memory JPEG 읽기 -> GRAY 
-	bool readSharedGray(int cam_idx, cv::Mat& gray) {
-		Slot& slot = shm_seg_->cam[cam_idx];
+	bool readSharedGray(int robot_id, int cam_idx, cv::Mat& gray) {
+		Slot& slot = shm_seg_->cam[robot_id][cam_idx];
 		uint32_t size = slot.size.load(std::memory_order_acquire);
 		if (size == 0 || size > MAX_IMG) return false;
 
@@ -232,7 +232,9 @@ private:
 	void processOnce() {
 		// 1) Grab two GRAY frames
 		cv::Mat gray_l, gray_r;
-		if (!readSharedGray(0, gray_l) || !readSharedGray(1, gray_r)) return;
+
+		constexpr int ROBOT_ID = 1;	// default robot id
+		if (!readSharedGray(ROBOT_ID, 0, gray_l) || !readSharedGray(ROBOT_ID, 1, gray_r)) return;
 
 		// 2) Rectify
 		cv::remap(gray_l, gray_rect_l_, map1x_, map1y_, cv::INTER_LINEAR);

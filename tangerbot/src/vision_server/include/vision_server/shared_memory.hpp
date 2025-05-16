@@ -30,19 +30,21 @@ namespace shm {
     constexpr size_t MAX_PACKET = 10240;
     constexpr uint8_t MAGIC_VALUE = 0xAA;
 
-    // Shared memory slot for a single camera
+    // Shared memory
     struct Slot {
         std::atomic<uint32_t> frame_id{0};  // frame number (for change detection)
         std::atomic<uint32_t> size{0};      // data size in bytes
         alignas(64) std::array<uint8_t, MAX_IMG> data;  // aligned buffer
     };
 
-    // Entire shared segment for two cameras
+    // shared segment 메모리 
     struct Segment {
-        Slot cam[3];  // cam[0]: left,      cam[1]: right,      cam[2]: picamera
+        Slot cam[3][3];  
+        // 로봇 3대
+        // cam[0]:left, cam[1]:right, cam[2]:picamera
     };
 
-    // Open or create shared memory segment
+    // Open or create shared memory
     inline Segment* open(bool create) {
         int fd = shm_open(NAME, create ? (O_CREAT | O_RDWR) : O_RDWR, 0666);
         if (fd == -1) {

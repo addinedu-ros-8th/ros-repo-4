@@ -158,7 +158,7 @@ private:
 					}
 					*/
 
-	                Slot& slot = shm_ptr_->cam[hdr->camera_id];
+	                Slot& slot = shm_ptr_->cam[hdr->robot_id - 1][hdr->camera_id];
 	                if (encoded.size() > MAX_IMG) {
 	                    std::cerr << "Encoded image size " << encoded.size() << " exceeds MAX_IMG " << MAX_IMG << "\n";
 	                } else {
@@ -166,6 +166,7 @@ private:
 	                    memcpy(slot.data.data(), encoded.data(), encoded.size());
 	                    slot.size.store(encoded.size(), std::memory_order_release);
 	                    slot.frame_id.store(hdr->frame_id, std::memory_order_release);
+						std::cout << "[ROBOT " << int(hdr->robot_id) << "]";
 	                    std::cout << "[CAM " << int(hdr->camera_id) << "] frame " << hdr->frame_id << " stored\n";
 	                }
 	            }
