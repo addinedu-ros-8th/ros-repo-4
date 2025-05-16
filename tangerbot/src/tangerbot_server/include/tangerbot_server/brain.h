@@ -22,6 +22,9 @@
 #include "geometry_msgs/msg/pose_stamped.hpp"
 #include "std_msgs/msg/bool.hpp"
 #include "geometry_msgs/msg/twist.hpp"
+#include "tangerbot_msgs/msg/call_state.hpp"
+
+
 #include <thread>
 #include <unordered_map>
 #include <string>
@@ -46,6 +49,7 @@ public:
 
     //message
     using RobotState = tangerbot_msgs::msg::RobotState;
+    using CallState = tangerbot_msgs::msg::CallState;
     using Twist = geometry_msgs::msg::Twist;
 
 
@@ -67,6 +71,7 @@ private:
     rclcpp::Subscription<RobotState>::SharedPtr robot_states_;
     rclcpp::Subscription<std_msgs::msg::Bool>::SharedPtr obstacle_subscriber_;
     rclcpp::Publisher<geometry_msgs::msg::Twist>::SharedPtr cmd_vel_publisher_;
+    rclcpp::Publisher<tangerbot_msgs::msg::CallState>::SharedPtr call_state_publisher_;
 
     //declare variable 
     std::shared_ptr<tangerbot_msgs::msg::RobotState> robot_state_;
@@ -75,6 +80,7 @@ private:
     nav_msgs::msg::Path selected_robot_path_;
     std::atomic_bool obstacle_detected_{false};
     std::string current_robot_id_;
+    float current_distance_remaining_ = 0.0;
 
     
     //thread

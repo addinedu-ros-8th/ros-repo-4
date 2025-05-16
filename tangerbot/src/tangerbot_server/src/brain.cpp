@@ -50,12 +50,13 @@ Brain::Brain() : Node("brain") {
         "robot_state", 10, std::bind(&Brain::robot_state_callback, this, _1)
     );
     obstacle_subscriber_ = this->create_subscription<std_msgs::msg::Bool>(
-        "/obstacle_status", 10,
+        "/obstacle_bool", 10,
         std::bind(&Brain::obstacle_callback, this, std::placeholders::_1)
     );
 
     //publisher
     cmd_vel_publisher_ = this->create_publisher<geometry_msgs::msg::Twist>("cmd_vel", 10);
+    call_state_publisher_ = this->create_publisher<tangerbot_msgs::msg::CallState>("call_state", 10);
 
     //connect database
     sql::mysql::MySQL_Driver* driver = sql::mysql::get_mysql_driver_instance();
@@ -117,7 +118,6 @@ void Brain::obstacle_callback(const std_msgs::msg::Bool::SharedPtr msg)
         RCLCPP_INFO(this->get_logger(), "Obstacle detected!");
         obstacle_detected_ = true;
     } else {
-        RCLCPP_INFO(this->get_logger(), "No obstacle detected.");
         obstacle_detected_ = false;
     }
 }
@@ -211,12 +211,12 @@ std::string Brain::select_optimal_robot(const geometry_msgs::msg::PoseStamped& g
         
         float distance = result->distance;
 
-        double battery_score = state.battery/100.0;
+        //double battery_score = state.battery/100.0;
         double distance_score = 1.0/(1.0+distance);
-        double workload_score = 1.0/(1.0+request_workload(robot_id));
+        //double workload_score = 1.0/(1.0+request_workload(robot_id));
 
-        double score = 0.5 * battery_score + 0.3 * distance_score + 0.2 * workload_score;
-        //double score = distance;
+        //double score = 0.5 * battery_score + 0.3 * distance_score + 0.2 * workload_score;
+        double score = distance;
         if (score > best_score){
             best_score = score;
             selected_robot_id = robot_id;
@@ -226,6 +226,10 @@ std::string Brain::select_optimal_robot(const geometry_msgs::msg::PoseStamped& g
     if (selected_robot_id.empty()){
         return "";
     }
+    tangerbot_msgs::msg::CallState msg;
+    msg.robot_id = selected_robot_id;
+    msg.success = true;
+    call_state_publisher_->publish(msg);
     RCLCPP_INFO(this->get_logger(), "Selected Optimal Robot: %s", selected_robot_id.c_str());
     return selected_robot_id;
 }
@@ -281,74 +285,101 @@ void Brain::move_to_section(const geometry_msgs::msg::PoseStamped& goal_pose)
     }
 
 
-    if (!set_robot_state(selected_robot_id, 1, 0)){
-        RCLCPP_WARN(this->get_logger(), "Failed to update robot state");
-    } 
-
-
-    if (!follow_path_client_->wait_for_action_server(std::chrono::seconds(10))){
-        RCLCPP_ERROR(this->get_logger(), "Follow Path Action Server not availaable");
-        set_robot_state(selected_robot_id, 1, 2); //Working, Stop
-        return;
-    }
-
-    auto goal_msg = nav2_msgs::action::FollowPath::Goal();
-    goal_msg.path = selected_robot_path_;
-    
-
-    auto send_goal_options = rclcpp_action::Client<nav2_msgs::action::FollowPath>::SendGoalOptions(); 
-    send_goal_options.result_callback = [this, selected_robot_id](const auto& result){
-
-        if (result.code==rclcpp_action::ResultCode::SUCCEEDED){
-            RCLCPP_INFO(this->get_logger(), "Robot %s reached the goal.", selected_robot_id.c_str());
-            return;
-        } else {
-            RCLCPP_INFO(this->get_logger(), "Robot %s failed to reach the goal.", selected_robot_id.c_str());
-        }
-    };
-
-    auto future_goal_handle = follow_path_client_->async_send_goal(goal_msg, send_goal_options);
-    auto goal_handle = future_goal_handle.get();
-    if (!goal_handle) {
-        RCLCPP_ERROR(this->get_logger(), "Goal was rejected by the server");
-        return;
-    }
-
-    RCLCPP_INFO(this->get_logger(), "Sent follow path goal");
-
+    // if (!set_robot_state(selected_robot_id, 1, 0)){
+    //     RCLCPP_WARN(this->get_logger(), "Failed to update robot state");
+    // } 
 
     while(rclcpp::ok() ){
-        if (obstacle_detected_){
-            auto cancel_future = follow_path_client_->async_cancel_goal(goal_handle_);
-            auto result_future = follow_path_client_->async_get_result(goal_handle);
-            auto result = result_future.get();
-            
-            if (result.code == rclcpp_action::ResultCode::CANCELED) {
-                RCLCPP_INFO(this->get_logger(), "Follow Path canceled successfully.");
-                auto cmd_vel = geometry_msgs::msg::Twist();
-                
-                while (obstacle_detected_){
-                    cmd_vel.linear.x = -1.0;
+        rclcpp::Rate loop_rate(10);
+        if (!follow_path_client_->wait_for_action_server(std::chrono::seconds(10))){
+            RCLCPP_ERROR(this->get_logger(), "Follow Path Action Server not availaable");
+            //set_robot_state(selected_robot_id, 1, 2); //Working, Stop
+            return;
+        }
+
+        auto goal_msg = nav2_msgs::action::FollowPath::Goal();
+        goal_msg.path = selected_robot_path_;
+        
+
+        auto send_goal_options = rclcpp_action::Client<nav2_msgs::action::FollowPath>::SendGoalOptions(); 
+        send_goal_options.result_callback = [this, selected_robot_id, goal_msg, send_goal_options](const auto& result){
+            if (result.code==rclcpp_action::ResultCode::SUCCEEDED){
+                tangerbot_msgs::msg::CallState msg;
+                msg.robot_id = selected_robot_id;
+                msg.success=true;
+                msg.done = true;
+                msg.time_remaining = 0.0;
+                call_state_publisher_->publish(msg);
+
+                RCLCPP_INFO(this->get_logger(), "Robot %s reached the goal.", selected_robot_id.c_str());
+            } else {
+                RCLCPP_INFO(this->get_logger(), "Robot %s failed to reach the goal.", selected_robot_id.c_str());
+            }
+        };
+
+        send_goal_options.feedback_callback = [this, selected_robot_id](auto /*goal_handle*/, const std::shared_ptr<const nav2_msgs::action::FollowPath::Feedback> feedback) {
+            if (feedback) {
+                current_distance_remaining_ = feedback->distance_to_goal;
+                float current_speed = feedback->speed;
+                float time_remaining = current_distance_remaining_ / current_speed; 
+                if (time_remaining < 0) return;
+
+                tangerbot_msgs::msg::CallState msg;
+                msg.robot_id = selected_robot_id;
+                msg.success = true;
+                msg.done = false;
+                msg.time_remaining = time_remaining;
+                call_state_publisher_->publish(msg);
+        
+                RCLCPP_INFO(this->get_logger(), "Robot %s remaining distance: %.2f m, ETA: %.2f s", 
+                            selected_robot_id.c_str(), current_distance_remaining_, time_remaining);
+            }
+        };
+
+        auto future_goal_handle = follow_path_client_->async_send_goal(goal_msg, send_goal_options);
+        goal_handle_ = future_goal_handle.get();
+        if (!goal_handle_) {
+            RCLCPP_ERROR(this->get_logger(), "Goal was rejected by the server");
+            return;
+        }
+
+        RCLCPP_INFO(this->get_logger(), "Sent follow path goal");
+
+
+        while (rclcpp::ok()) {     
+
+            if (obstacle_detected_){
+                if (goal_handle_) {
+                    RCLCPP_INFO(this->get_logger(), "obstacle detected, canceling follow path");
+                    auto cancel_future = follow_path_client_->async_cancel_goal(goal_handle_);
+                    
+                    RCLCPP_INFO(this->get_logger(), "Follow Path canceled successfully.");
+                    auto cmd_vel = geometry_msgs::msg::Twist();
+                    
+                    while (obstacle_detected_){
+                        cmd_vel.linear.x = -0.1;
+                        cmd_vel.angular.z = 0.0;
+                        cmd_vel_publisher_->publish(cmd_vel);
+                        loop_rate.sleep();
+                    }
+    
+                    cmd_vel.linear.x = 0.0;
                     cmd_vel.angular.z = 0.0;
                     cmd_vel_publisher_->publish(cmd_vel);
+    
+                    auto result = request_path_planning_action(selected_robot_id, goal_pose);
+    
+                    goal_msg.path = result->path;
+            
+                    future_goal_handle = follow_path_client_->async_send_goal(goal_msg, send_goal_options);
+                    goal_handle_ = future_goal_handle.get();
+                    if (!goal_handle_) {
+                        RCLCPP_ERROR(this->get_logger(), "Goal was rejected by the server");
+                        return;
+                    }
+                    RCLCPP_INFO(this->get_logger(), "Path Replanning Re-Requested");
                 }
-
-                cmd_vel.linear.x = 0.0;
-                cmd_vel.angular.z = 0.0;
-                cmd_vel_publisher_->publish(cmd_vel);
-
-                auto result = request_path_planning_action(selected_robot_id, goal_pose);
-        
-                future_goal_handle = follow_path_client_->async_send_goal(goal_msg, send_goal_options);
-                goal_handle = future_goal_handle.get();
-                if (!goal_handle) {
-                    RCLCPP_ERROR(this->get_logger(), "Goal was rejected by the server");
-                    return;
-                }
-                RCLCPP_INFO(this->get_logger(), "Path Replanning Re-Requested");
-         
-            } else {
-                RCLCPP_ERROR(this->get_logger(), "Keep Moving");
+                
             }
         }
     }

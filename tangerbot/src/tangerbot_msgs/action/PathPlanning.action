@@ -12,6 +12,4 @@ uint16 NO_PATH=2
 uint16 error_code
 string error_msg
 ---
-string robot_id
-float32 distance_remaining
 

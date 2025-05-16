@@ -10,6 +10,7 @@
 #include "geometry_msgs/msg/point.hpp"
 #include "tangerbot_msgs/action/path_planning.hpp"
 #include "geometry_msgs/msg/pose_stamped.hpp"
+#include "nav_msgs/srv/get_map.hpp"
 
 //STL
 #include <utility>
@@ -39,9 +40,11 @@ private:
     rclcpp_action::Server<PathPlanning>::SharedPtr path_planning_server;
     rclcpp::Subscription<OccupancyGrid>::SharedPtr costmap_sub;
     rclcpp::Subscription<geometry_msgs::msg::PoseStamped>::SharedPtr tracked_pose_sub;
+    rclcpp::Client<nav_msgs::srv::GetMap>::SharedPtr get_map_client;
 
     geometry_msgs::msg::Point origin;
     cv::Mat costmap;
+    cv::Mat map;
     geometry_msgs::msg::PoseStamped tracked_pose;
 
     // Functions
@@ -61,6 +64,8 @@ private:
     void handle_accepted(const std::shared_ptr<GoalHandlePathPlanning> goal_handle);
 
     void execute(const std::shared_ptr<GoalHandlePathPlanning> goal_handle);
+
+    void map_callback(rclcpp::Client<nav_msgs::srv::GetMap>::SharedFuture future);
 };
 
 #endif //PATH_PLANNER_H
