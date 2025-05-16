@@ -4,6 +4,7 @@ from rclpy.node import Node
 from geometry_msgs.msg import TransformStamped
 from geometry_msgs.msg import PoseWithCovarianceStamped
 from geometry_msgs.msg import PoseStamped
+from geometry_msgs.msg import Twist
 import tf2_ros
 import math
 import numpy as np
@@ -36,8 +37,8 @@ class MyTfBroadcaster(Node):
         super().__init__("my_tf_broadcaster")
         
         self.br = tf2_ros.TransformBroadcaster(self)
-        self.tracked_pose_pub = self.create_publisher(PoseStamped, "tracked_pose", 10)
         
+        self.tracked_pose_pub = self.create_publisher(PoseStamped, "tracked_pose", 10)
         self.timer = self.create_timer(0.05, self.timer_callback)
         self.t = 0.0
         
@@ -63,6 +64,10 @@ class MyTfBroadcaster(Node):
         self.prev_tvec = np.array([0, 0, 0])
         self.ALPHA = 0.6
         
+        self.is_driving = False
+        
+        self.cmd_vel_sub = self.create_subscription(Twist, "/cmd_vel", lambda msg, ns="robot1": self.cmd_vel_callback(msg, ns), 10)
+        
     def get_yaml(self, path):
         with open(path, 'r') as f:
             data = yaml.safe_load(f)
@@ -80,6 +85,12 @@ class MyTfBroadcaster(Node):
         key = cv2.waitKey(1) & 0xFF
         if key == ord('q'):
             raise Exception
+        
+    def cmd_vel_callback(self, msg, ns):
+        if msg.linear.x == 0.0 and msg.angular.z == 0.0:
+            self.is_driving = False
+        else:
+            self.is_driving = True
         
     def pose_estimation(self, frame):
         pkg_path = get_package_share_directory('aruco_package')
@@ -195,10 +206,16 @@ class MyTfBroadcaster(Node):
                 
                 quat = tf_transformations.quaternion_from_matrix(T_map_marker)
                 
-                # t.transform.translation.x = float(calibrated_translation[0]/100)
+                # t.transform.translation.x = float(calibrated_translation[0]/100)e
+
                 # t.transform.translation.y = float(calibrated_translation[1]/100)
+                
+                if self.is_driving:
+                    ALPHA = self.ALPHA
+                else:
+                    ALPHA = 0.9
                 t_map_marker = np.array(t_map_marker)
-                t_map_marker = self.ALPHA * self.prev_tvec + (1 - self.ALPHA) * t_map_marker
+                t_map_marker = ALPHA * self.prev_tvec + (1 - ALPHA) * t_map_marker
                 self.prev_tvec = t_map_marker
                 t.transform.translation.x = t_map_marker[0]
                 t.transform.translation.y = t_map_marker[1]
@@ -246,21 +263,21 @@ def main(args=None):
     ap.add_argument("-t", "--type", type=str, default="DICT_4X4_100", help="Type of ArUCo dictionary")
     ap.add_argument("-s", "--source", default='0', help="Video source (camera index or video file path)")
     ap.add_argument("-m", "--marker-length", type=float, default=0.1, help="Actual length of the marker's side (in meters)")
-    parsed_args = vars(ap.parse_args())
-    
-    if ARUCO_DICT.get(parsed_args["type"], None) is None:
-        print(f"[ERROR] Unsupported ArUCo type: {parsed_args['type']}")
+    #parsed_args = vars(ap.parse_args())
+    parsed_args, unknown = ap.parse_known_args()
+    if ARUCO_DICT.get(parsed_args.type, None) is None:
+        print(f"[ERROR] Unsupported ArUCo type: {parsed_args.type}")
         sys.exit(1)
         
     pkg_path = get_package_share_directory('aruco_package')
-    aruco_dict_type = ARUCO_DICT[parsed_args["type"]]
+    aruco_dict_type = ARUCO_DICT[parsed_args.type]
     k_path = os.path.join(pkg_path, 'config', "calibration_matrix.npy")
     k = np.load(k_path)
     d_path = os.path.join(pkg_path, 'config', "distortion_coefficients.npy")
     d = np.load(d_path)
-    marker_length = parsed_args["marker_length"]
+    marker_length = parsed_args.marker_length
 
-    source = int(parsed_args["source"]) if parsed_args["source"].isdigit() else parsed_args["source"]
+    source = int(parsed_args.source) if parsed_args.source.isdigit() else parsed_args.source
 
     rp.init(args=args)
     tf = MyTfBroadcaster(source, aruco_dict_type, k, d, marker_length)

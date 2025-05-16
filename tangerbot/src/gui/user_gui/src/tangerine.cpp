@@ -18,7 +18,7 @@ Tangerine::Tangerine(QWidget *parent) :
 {
     ui->setupUi(this);
     //ui->stackedWidget->setCurrentIndex(0);
-    ui->robot_widget->setCurrentIndex(1);
+    ui->robot_widget->setCurrentIndex(5);
 
     /**********************************************
      * * Initialize ROS2 Node
@@ -46,10 +46,10 @@ Tangerine::Tangerine(QWidget *parent) :
     ui->label_introPic->setScaledContents(true);
     ui->label_introPic->setSizePolicy(QSizePolicy::Ignored, QSizePolicy::Ignored);
 
-    loading = new QMovie(":/image/Loading_icon.gif");
+    loading = new QMovie(path + "/src/gui/user_gui/image/Loading_icon.gif");
     ui->label_loading->setMovie(loading);
     ui->label_loading->setScaledContents(true);
-
+    
     // Section selector
     ImageButton *img_btn = new ImageButton(this, ui->robot_page_frame);
     QVBoxLayout *layout = new QVBoxLayout(ui->robot_page_frame);
@@ -108,14 +108,35 @@ Tangerine::Tangerine(QWidget *parent) :
     connect(ui->btn_ssettings, &QPushButton::clicked, this, [=]() {ui->stackedWidget->setCurrentIndex(5);});
 
 
-    connect(ui->btn_call, &QPushButton::clicked, this, [=]() {ui->robot_widget->setCurrentIndex(2);});
+    connect(ui->btn_call, &QPushButton::clicked, this, [=]() {
+      
+      // Test, you must remove this
+      //**********************************************************
+      called_robot = true;
+      //**********************************************************
+      if (called_robot) {
+        QMessageBox::StandardButton reply;
+        reply = QMessageBox::question(this, "Cancel", "Are you sure Cancel calling robot?", QMessageBox::Yes | QMessageBox::No);
+
+        if (reply == QMessageBox::Yes) {
+          // Cancel process
+        } else {
+          // None
+        }
+      } else 
+        ui->robot_widget->setCurrentIndex(2);
+    });
     connect(ui->btn_vociecall, &QPushButton::clicked, this, [=]() {ui->robot_widget->setCurrentIndex(3);});
 
     /**********************************************
      * * Call Functions
     ***********************************************/
     goal_pub_ = node_->create_publisher<geometry_msgs::msg::PoseStamped>("/goal_pose", 10);
-
+    
+    // Test, you must remove this
+    //**********************************************************
+    ui->remaining_time->setValue(50);
+    //**********************************************************
 }
 
 
