@@ -1,7 +1,11 @@
 string robot_id # if robot
 string user_id # if user
 uint8 type
+<<<<<<< HEAD
 string data #which section
+=======
+string data
+>>>>>>> dev
 
 # type
 uint8 MOVETOSECTION = 0

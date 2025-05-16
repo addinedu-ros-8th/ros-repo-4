@@ -48,8 +48,8 @@ private:
     void costmap_callback(const OccupancyGrid::SharedPtr msg);
     void tracked_pose_callback(const geometry_msgs::msg::PoseStamped::SharedPtr msg);
 
-    pair<vector<Point>, float> astar(const cv::Mat& binary_map, const cv::Mat& dist_map, Point start, Point goal, float k);
-    nav_msgs::msg::Path add_orientation(const vector<Point> path, string frame_id = "map");
+    pair<vector<pair<double, double>>, float> astar(const cv::Mat& binary_map, const cv::Mat& dist_map, Point start, Point goal, float k);
+    nav_msgs::msg::Path add_orientation(const vector<pair<double, double>> path, string frame_id = "map");
 
     rclcpp_action::GoalResponse handle_goal(
     const rclcpp_action::GoalUUID & uuid,
