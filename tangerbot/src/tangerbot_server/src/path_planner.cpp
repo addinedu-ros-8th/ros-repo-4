@@ -70,8 +70,6 @@ void PathPlanner::costmap_callback(const OccupancyGrid::SharedPtr msg) {
         }
     }
 
-    cv::imshow("Occupancy Grid Map", result);
-    cv::waitKey(1); 
     cv::resize(result, result, cv::Size(width*5, height*5));
     costmap = result;
 }
@@ -80,7 +78,7 @@ void PathPlanner::tracked_pose_callback(const geometry_msgs::msg::PoseStamped::S
     tracked_pose = *msg;
 }
 
-pair<vector<Point>, float> PathPlanner::astar(const cv::Mat& binary_map, const cv::Mat& dist_map, Point start, Point goal, float k) {
+pair<vector<pair<double, double>>, float> PathPlanner::astar(const cv::Mat& binary_map, const cv::Mat& dist_map, Point start, Point goal, float k) {
     int h = binary_map.rows;
     int w = binary_map.cols;
     Point map_pose;
@@ -121,22 +119,24 @@ pair<vector<Point>, float> PathPlanner::astar(const cv::Mat& binary_map, const c
     while (!open_set.empty()) {
         Point current = open_set.top().pos;
         open_set.pop();
-
         if (current == goal) {
             // Reconstruct path
-            vector<Point> raw_path, path;
-            Point cur = current;
+            vector<Point> raw_path;
+            vector<pair<double, double>> path;
+            Point cur = current; 
             while (came_from.count(hash(cur))) {
                 raw_path.push_back(cur);
                 cur = came_from[hash(cur)];
             }
-            path.push_back(start);
+            path.push_back({start.first / 100.0f, start.second / 100.0f});
+            RCLCPP_INFO(this->get_logger(), "Path found! start x: %lf, y: %lf", start.first / 100.0f, start.second / 100.0f);
             reverse(raw_path.begin(), raw_path.end());
 
             float total_dist = 0.0f;
             for (size_t i = 0; i < raw_path.size(); ++i) {
                 double x = (raw_path[i].first - map_pose.first) / 100.0f;
                 double y = (raw_path[i].second - map_pose.second) / 100.0f;
+                //RCLCPP_INFO(this->get_logger(), "Path x: %lf, y: %lf", x, y);
                 path.emplace_back(x, y);
                 if (i > 0) {
                     float dx = raw_path[i].first - raw_path[i-1].first;
@@ -165,7 +165,7 @@ pair<vector<Point>, float> PathPlanner::astar(const cv::Mat& binary_map, const c
     return {}; // Path not found
 }
 
-nav_msgs::msg::Path PathPlanner::add_orientation(const vector<Point> path, string frame_id) {
+nav_msgs::msg::Path PathPlanner::add_orientation(const vector<pair<double, double>> path, string frame_id) {
     nav_msgs::msg::Path path_with_orientation;
     path_with_orientation.header.frame_id = frame_id;
 
@@ -241,12 +241,11 @@ void PathPlanner::execute(const std::shared_ptr<GoalHandlePathPlanning> goal_han
     map_pose.second = -origin.y * 100;
     start.first = static_cast<int>(tracked_pose.pose.position.x * 100) + map_pose.first;
     start.second = static_cast<int>(tracked_pose.pose.position.y * 100) + map_pose.second;
-
     goal_pose.first = static_cast<int>(goal->goal.pose.position.x * 100) + map_pose.first;
     goal_pose.second = static_cast<int>(goal->goal.pose.position.y * 100) + map_pose.second;
 
     auto [path, distance] = this->astar(costmap, dist, start, goal_pose, 5.0);
-
+   
     if (path.empty()) {
         auto result = std::make_shared<PathPlanning::Result>();
         result->robot_id = goal->robot_id;
@@ -260,12 +259,14 @@ void PathPlanner::execute(const std::shared_ptr<GoalHandlePathPlanning> goal_han
 
     cv::Mat img_show = costmap;
     for (auto each : path) {
-        cv::circle(img_show, cv::Point(each.first, each.second), 1, cv::Scalar(0, 0, 0), -1);
+        RCLCPP_INFO(this->get_logger(), "Path x: %lf, y: %lf", each.first, each.second);
+        cv::circle(img_show, cv::Point(each.first * 100, each.second * 100), 5, cv::Scalar(0, 0, 0), -1);
     }
-
+    RCLCPP_INFO(this->get_logger(), "Redeay for sending path");
     auto path_msg = nav_msgs::msg::Path();
     path_msg = this->add_orientation(path, "map");
 
+    
     // Check if goal is done
     if (rclcpp::ok()) {
         result->robot_id = goal->robot_id;
@@ -274,6 +275,8 @@ void PathPlanner::execute(const std::shared_ptr<GoalHandlePathPlanning> goal_han
         goal_handle->succeed(result);
         RCLCPP_INFO(this->get_logger(), "Goal succeeded");
     }
+    cv::imshow("Occupancy Grid Map", img_show);
+    cv::waitKey(0); 
 }
 
 int main(int argc, char ** argv) {
