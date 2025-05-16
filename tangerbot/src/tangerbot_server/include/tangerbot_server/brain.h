@@ -14,6 +14,7 @@
 #include "tangerbot_msgs/srv/handle_command.hpp"
 #include "tangerbot_msgs/srv/get_workload.hpp"
 #include "tangerbot_msgs/srv/set_follow_mode.hpp"
+#include "tangerbot_msgs/srv/set_human_pose_mode.hpp"
 #include "tangerbot_msgs/srv/set_state.hpp"
 #include "tangerbot_msgs/srv/redirect.hpp"
 
@@ -22,6 +23,9 @@
 #include "geometry_msgs/msg/pose_stamped.hpp"
 #include "std_msgs/msg/bool.hpp"
 #include "geometry_msgs/msg/twist.hpp"
+#include "tangerbot_msgs/msg/call_state.hpp"
+
+
 #include <thread>
 #include <unordered_map>
 #include <string>
@@ -39,9 +43,11 @@ public:
     using SetFollowMode = tangerbot_msgs::srv::SetFollowMode;
     using SetState = tangerbot_msgs::srv::SetState;
     using Redirect = tangerbot_msgs::srv::Redirect;
+    using SetHumanPoseMode = tangerbot_msgs::srv::SetHumanPoseMode;
 
     //message
     using RobotState = tangerbot_msgs::msg::RobotState;
+    using CallState = tangerbot_msgs::msg::CallState;
     using Twist = geometry_msgs::msg::Twist;
 
     Brain();
@@ -60,9 +66,11 @@ private:
     rclcpp::Client<SetFollowMode>::SharedPtr set_human_pose_mode_client_;
     rclcpp::Client<SetState>::SharedPtr set_state_client_;
     rclcpp::Client<Redirect>::SharedPtr redirect_client_;
+    rclcpp::Client<SetHumanPoseMode>::SharedPtr set_human_pose_mode_client_;
     rclcpp::Subscription<RobotState>::SharedPtr robot_states_;
     rclcpp::Subscription<std_msgs::msg::Bool>::SharedPtr obstacle_subscriber_;
     rclcpp::Publisher<geometry_msgs::msg::Twist>::SharedPtr cmd_vel_publisher_;
+    rclcpp::Publisher<tangerbot_msgs::msg::CallState>::SharedPtr call_state_publisher_;
 
     //declare variable 
     std::shared_ptr<tangerbot_msgs::msg::RobotState> robot_state_;
@@ -71,6 +79,7 @@ private:
     nav_msgs::msg::Path selected_robot_path_;
     std::atomic_bool obstacle_detected_{false};
     std::string current_robot_id_;
+    float current_distance_remaining_ = 0.0;
 
     
     //thread
