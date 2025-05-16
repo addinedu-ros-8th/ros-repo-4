@@ -5,18 +5,27 @@ from rclpy.node import Node
 from PyQt5.QtWidgets import QApplication, QMainWindow
 from PyQt5.uic import loadUi
 import cv2
-from PyQt5.QtGui import QImage, QPixmap, QTransform
-from tangerbot_msgs.msg import RobotState, RobotPose  # 메시지 타입
+from PyQt5.QtGui import QImage, QPixmap
+from PyQt5.QtCore import *
+from tangerbot_msgs.msg import RobotState  # 메시지 타입
 from functools import partial
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.figure import Figure
-from PyQt5.QtCore import Qt, QTimer
-from PyQt5.QtGui import QPainter, QPen, QColor, QPolygonF, QTransform
-from PyQt5.QtCore import QPointF
-import math
-#import pymysql
 import mysql.connector
-from PyQt5.QtWidgets import QTableWidgetItem, QHeaderView
+
+# mydb = mysql.connector.connect(
+#     host = "localhost",
+#     user = "root",
+#     passwd = "0000"
+#     database = "tangerine"
+# )
+# conn = mydb.cursor()
+
+# cursor = conn.cursor()
+# results = cursor.fetchall()
+
+
+
 class AdminInterface(Node, QMainWindow):
     def __init__(self):
         QMainWindow.__init__(self)
@@ -25,25 +34,6 @@ class AdminInterface(Node, QMainWindow):
         # UI 파일 로드
         ui_file = os.path.join(os.path.dirname(__file__), '../ui/admin_interface.ui')
         loadUi(ui_file, self)
-        
-        self.show_map_image()
-        
-        image_path = os.path.join(os.path.dirname(__file__), '../data/tangermap.png')
-        self.original_map_pixmap = QPixmap(image_path)
-        if self.original_map_pixmap.isNull():
-            print("[에러] 지도 이미지 로딩 실패")
-            return
-
-        # 로봇 위치 저장 dict {robot_id: Pose}
-        self.robot_poses = {}
-
-        # ROS 구독: RobotPose 메시지
-        self.create_subscription(RobotPose, '/robot_pose', self.handle_robot_pose, 10)
-
-        # 지도 + 로봇 위치 표시
-        self.update_map_with_robots()
-        
-        self.load_log_data()
 
         # 버튼 이미지 설정
         base_dir = os.path.dirname(__file__)
@@ -69,7 +59,6 @@ class AdminInterface(Node, QMainWindow):
 
         # pinky cam 스트림 시작
         # self.start_camera_streams()
-
         
         self.figure = Figure(figsize=(4, 3))
         self.canvas = FigureCanvas(self.figure)
@@ -77,6 +66,8 @@ class AdminInterface(Node, QMainWindow):
         self.canvas.move(0, 0)
         self.canvas.resize(self.label_32.size())
 
+        self.mask_image()
+        self.label_39.setlabel
         # ComboBox 이벤트 연결
         self.comboBox.currentTextChanged.connect(self.update_graph)
 
@@ -90,11 +81,22 @@ class AdminInterface(Node, QMainWindow):
                 border: none;
             }}
         """)
-        
+    # def worker_time(self):
+    #     cursor.excute("SELECT * FROM DailyWorkload WHERE UID, workload")
 
-    def show_map_image(self):
-        image_path = os.path.join(os.path.dirname(__file__), '../data/tangermap.png')
-        pixmap = QPixmap(image_path)
+
+    # worker_report profile label
+    def mask_image(self):
+        
+        image_files = ['duck.jpg', 'puppy.png', 'dog.jpg']  # 넣고 싶은 이미지 파일들
+        labels = [self.label_36, self.label_37, self.label_38]  # 대응하는 QLabel 객체들
+
+        for image_file, label in zip(image_files, labels):
+            image_path = os.path.join(os.path.dirname(__file__), '../data/', image_file)
+            pixmap = QPixmap(image_path)
+            if pixmap.isNull():
+                print(f"[에러] 이미지 로딩 실패: {image_path}")
+                continue
 
         if pixmap.isNull():
             print("[에러] 이미지 로딩 실패:", image_path)
