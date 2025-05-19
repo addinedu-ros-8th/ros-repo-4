@@ -40,7 +40,7 @@ class GestureNode(Node):
 
         self.NUM_CAMERAS = 3
         self.robot_idx = 0
-        self.camera_id = 0  # 왼쪽 카메라
+        self.camera_id = 2  # picam
 
     def read_shared_memory(self):
         BASE_OFFSET = (self.robot_idx * self.NUM_CAMERAS + self.camera_id) * self.SLOT_SIZE
@@ -119,7 +119,16 @@ class GestureNode(Node):
             self.get_logger().info(f"Published gesture: {gesture}")
 
         # 디버깅 시각화
-        cv2.putText(frame, f"Gesture: {gesture}", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 0, 0), 2)
+
+        gesture_labels = {
+            0: "STOP",
+            1: "COME",
+            2: "BACK",
+            -1: "UNKNOWN"
+        }
+        gesture_text = gesture_labels.get(gesture, "❓ UNKNOWN")
+
+        cv2.putText(frame, f"Gesture: {gesture_text} ({gesture})", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 0, 0), 2)
         cv2.imshow('Hand Gesture', frame)
 
         # ESC 키 종료
