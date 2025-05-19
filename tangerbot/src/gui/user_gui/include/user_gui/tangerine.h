@@ -14,6 +14,7 @@
 #include <nav_msgs/msg/occupancy_grid.hpp>
 #include <geometry_msgs/msg/pose_stamped.hpp>
 #include "tangerbot_msgs/srv/handle_command.hpp"
+#include "tangerbot_msgs/msg/call_state.hpp"
 #include <chrono>
 #include <string>
 
@@ -41,11 +42,15 @@ private:
     Ui::Tangerine *ui;
 
     std::string user_id = "user1";
+    std::string robot_id;
 
     rclcpp::Node::SharedPtr node_;
     rclcpp::Publisher<geometry_msgs::msg::PoseStamped>::SharedPtr goal_pub_;
     rclcpp::Subscription<nav_msgs::msg::OccupancyGrid>::SharedPtr map_subscriber_;
     rclcpp::Client<tangerbot_msgs::srv::HandleCommand>::SharedPtr handle_command_client;
+    rclcpp::Subscription<tangerbot_msgs::msg::CallState>::SharedPtr call_state_sub;
+
+    void call_state_callback(const tangerbot_msgs::msg::CallState::SharedPtr msg);
     
     bool map_received_;
     QImage map_image_;
@@ -56,7 +61,7 @@ private:
 
     bool called_robot = false;
     int current_robottab_index = 0;
-
+    int total_eta = -1;
 };
 
 #endif

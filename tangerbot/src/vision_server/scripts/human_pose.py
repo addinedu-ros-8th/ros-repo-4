@@ -2,7 +2,7 @@
 import rclpy
 from rclpy.node import Node
 from geometry_msgs.msg import PointStamped
-from tangerbot_msgs.srv import SetHumanPoseMode
+from tangerbot_msgs.srv import SetFollowMode
 
 import cv2
 import torch
@@ -19,13 +19,20 @@ import time
 class HumanPose(Node):
     def __init__(self):
         super().__init__('human_pose')
+        self.get_logger().info("Initializing HumanPose node")
+        try:
+            self.shm = posix_ipc.SharedMemory("/stereo_shm", flags=0)
+            self.get_logger().info("Shared memory opened successfully")
+        except posix_ipc.ExistentialError as e:
+            self.get_logger().error(f"Failed to open shared memory: {e}")
+            raise
 
         self.active_ = False
         self.robot_idx = 0
         self.camera_id = 0  # 왼쪽 카메라
 
         self.pub = self.create_publisher(PointStamped, 'object_pixel', 10)
-        self.srv = self.create_service(SetHumanPoseMode, 'set_human_pose_mode', self.handle_set_mode)
+        self.srv = self.create_service(SetFollowMode, 'set_human_pose_follow_mode', self.handle_set_mode)
 
         timer_period = 1.0 / 30.0
         self.publish_timer = self.create_timer(timer_period, self.publish_pixel)
@@ -67,6 +74,7 @@ class HumanPose(Node):
         self.robot_idx = int(name.replace('robot','')) - 1
         self.active_ = request.mode
         response.success = True
+        self.get_logger().warn("read")
         return response
 
     def get_center_distance(self, x1, y1, x2, y2, img_w, img_h):
