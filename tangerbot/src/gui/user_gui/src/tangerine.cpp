@@ -6,12 +6,27 @@
 #include <QDir>
 #include <QDebug>
 #include <QMouseEvent>
+#include <QMessageBox>
 #include <iostream>
 #include <QThread>
 #include <QTimer>
+#include <QDialog>
+#include <QRegularExpressionValidator>
 #include "user_gui/image_button.h"
 #include "user_gui/circular_progressbar.h"
 #include "user_gui/battery_widget.h"
+#include "user_gui/recording_dialog.h"
+
+/****************************************************** 
+  Using
+*******************************************************/
+using PoseStamped = geometry_msgs::msg::PoseStamped;
+using OccupancyGrid = nav_msgs::msg::OccupancyGrid;
+using HandleCommand = tangerbot_msgs::srv::HandleCommand;
+using CallState = tangerbot_msgs::msg::CallState;
+using SignUp = tangerbot_msgs::srv::SignUp;
+
+using namespace std::placeholders;
 
 Tangerine::Tangerine(QWidget *parent) :
   QMainWindow(parent),
@@ -21,7 +36,7 @@ Tangerine::Tangerine(QWidget *parent) :
     using namespace std::placeholders;
     ui->setupUi(this);
     //ui->stackedWidget->setCurrentIndex(0);
-    ui->robot_widget->setCurrentIndex(0);
+    ui->robot_widget->setCurrentIndex(1);
 
     /**********************************************
      * * Initialize ROS2 Node
@@ -35,10 +50,14 @@ Tangerine::Tangerine(QWidget *parent) :
      * * Initialize ROS2 Variables
     ***********************************************/
 
-    handle_command_client = node_->create_client<tangerbot_msgs::srv::HandleCommand>("handle_command");
-    call_state_sub = node_->create_subscription<tangerbot_msgs::msg::CallState>(
+    handle_command_client = node_->create_client<HandleCommand>("handle_command");
+    call_state_sub = node_->create_subscription<CallState>(
       "/call_state", 10, std::bind(&Tangerine::call_state_callback, this, _1)
     );
+
+    signup_client = node_->create_client<SignUp>("sign_up");
+
+    goal_pub_ = node_->create_publisher<PoseStamped>("/goal_pose", 10);
 
     /**********************************************
      * * Load the main image for the intro page
@@ -52,6 +71,7 @@ Tangerine::Tangerine(QWidget *parent) :
     ui->label_introPic->setScaledContents(true);
     ui->label_introPic->setSizePolicy(QSizePolicy::Ignored, QSizePolicy::Ignored);
 
+    // Loading GIF for call request
     loading = new QMovie(path + "/src/gui/user_gui/image/Loading_icon.gif");
     ui->label_loading->setMovie(loading);
     ui->label_loading->setScaledContents(true);
@@ -76,20 +96,24 @@ Tangerine::Tangerine(QWidget *parent) :
     battery_progressbar_widget2->addWidget(battery_circular_progressbar);
     battery_circular_progressbar->set_color(QColor(255, 255, 255), QColor(0x00, 0xFF, 0x7F));
     battery_circular_progressbar->set_margin(20);
-    battery_circular_progressbar->set_percentage(100);
+    battery_circular_progressbar->set_percentage(85);
 
     // Robot batter widget
     battery_widget = new BatteryWidget(ui->battery_widget_frame);
     QVBoxLayout *battery_progressbar_widget1 = new QVBoxLayout(ui->battery_widget_frame);
     battery_progressbar_widget1->addWidget(battery_widget);
-    battery_widget->set_percentage(60);
+    battery_widget->set_percentage(85);
 
     /**********************************************
      * * Navigate to Page
     ***********************************************/
+
+    // In Main tab
     connect(ui->btn_signin, &QPushButton::clicked, this, [=]() {ui->stackedWidget->setCurrentIndex(2);});
     connect(ui->btn_signup, &QPushButton::clicked, this, [=]() {ui->stackedWidget->setCurrentIndex(1);});
-    connect(ui->btn_complete, &QPushButton::clicked, this, [=]() {ui->stackedWidget->setCurrentIndex(0);});
+    connect(ui->btn_complete, &QPushButton::clicked, this, [=]() {
+      request_signup();
+    });
     connect(ui->btn_signinMain, &QPushButton::clicked, this, [=]() {ui->stackedWidget->setCurrentIndex(3);});
 
     connect(ui->btn_mmain, &QPushButton::clicked, this, [=]() {ui->stackedWidget->setCurrentIndex(3);});
@@ -99,6 +123,7 @@ Tangerine::Tangerine(QWidget *parent) :
     });
     connect(ui->btn_smain, &QPushButton::clicked, this, [=]() {ui->stackedWidget->setCurrentIndex(3);});
 
+    // In Robot tab
     connect(ui->btn_mrobot, &QPushButton::clicked, this, [=]() {ui->stackedWidget->setCurrentIndex(4);});
     connect(ui->btn_rrobot, &QPushButton::clicked, this, [=]() {
       ui->stackedWidget->setCurrentIndex(4);
@@ -106,13 +131,7 @@ Tangerine::Tangerine(QWidget *parent) :
     });
     connect(ui->btn_srobot, &QPushButton::clicked, this, [=]() {ui->stackedWidget->setCurrentIndex(4);});
 
-    connect(ui->btn_msettings, &QPushButton::clicked, this, [=]() {ui->stackedWidget->setCurrentIndex(5);});
-    connect(ui->btn_rsettings, &QPushButton::clicked, this, [=]() {
-      ui->stackedWidget->setCurrentIndex(5);
-      ui->robot_widget->setCurrentIndex(current_robottab_index);
-    });
-    connect(ui->btn_ssettings, &QPushButton::clicked, this, [=]() {ui->stackedWidget->setCurrentIndex(5);});
-
+    connect(ui->btn_vociecall, &QPushButton::clicked, this, [=]() {ui->robot_widget->setCurrentIndex(3);});
 
     connect(ui->btn_call, &QPushButton::clicked, this, [=]() {
       if (called_robot) {
@@ -127,13 +146,20 @@ Tangerine::Tangerine(QWidget *parent) :
       } else 
         ui->robot_widget->setCurrentIndex(2);
     });
-    connect(ui->btn_vociecall, &QPushButton::clicked, this, [=]() {ui->robot_widget->setCurrentIndex(3);});
 
-    /**********************************************
-     * * Call Functions
-    ***********************************************/
-    goal_pub_ = node_->create_publisher<geometry_msgs::msg::PoseStamped>("/goal_pose", 10);
-    
+    connect(ui->btn_follow, &QPushButton::clicked, this, std::bind(&Tangerine::request_follwing, this));
+
+    connect(ui->btn_record, &QPushButton::clicked, this, std::bind(&Tangerine::start_recording, this));
+
+    // In Setting tab
+    connect(ui->btn_msettings, &QPushButton::clicked, this, [=]() {ui->stackedWidget->setCurrentIndex(5);});
+    connect(ui->btn_rsettings, &QPushButton::clicked, this, [=]() {
+      ui->stackedWidget->setCurrentIndex(5);
+      ui->robot_widget->setCurrentIndex(current_robottab_index);
+    });
+    connect(ui->btn_ssettings, &QPushButton::clicked, this, [=]() {ui->stackedWidget->setCurrentIndex(5);});
+
+    // Spin node
     QThread* rosThread = QThread::create([=]() {
     rclcpp::spin(node_);
     });
@@ -141,7 +167,7 @@ Tangerine::Tangerine(QWidget *parent) :
 }
 
 
-
+// Destroyer
 Tangerine::~Tangerine()
 {
   delete ui;
@@ -152,14 +178,17 @@ bool Tangerine::get_called_robot() {
   return called_robot;
 }
 
+/****************************************************** 
+  Slots
+*******************************************************/
 void Tangerine::handle_selection(QString section) {
   using namespace std::chrono_literals;
 
   called_robot = true;
   
-  auto request = std::make_shared<tangerbot_msgs::srv::HandleCommand::Request>();
+  auto request = std::make_shared<HandleCommand::Request>();
   request->user_id = user_id;
-  request->type = tangerbot_msgs::srv::HandleCommand::Request::MOVETOSECTION;
+  request->type = HandleCommand::Request::MOVETOSECTION;
   request->data = section.toStdString();
   int try_count = 0;
   
@@ -204,7 +233,10 @@ void Tangerine::handle_selection(QString section) {
   }
 }
 
-void Tangerine::call_state_callback(const tangerbot_msgs::msg::CallState::SharedPtr msg) {
+/****************************************************** 
+  Callback
+*******************************************************/
+void Tangerine::call_state_callback(const CallState::SharedPtr msg) {
   RCLCPP_INFO(node_->get_logger(), "call state");
   if (!called_robot) return;
   int eta = msg->time_remaining;
@@ -255,9 +287,115 @@ void Tangerine::call_state_callback(const tangerbot_msgs::msg::CallState::Shared
     }
   } else {
     QTimer::singleShot(0, this, [=]() {
-      ui->robot_widget->setCurrentIndex(1);
+      current_robottab_index = 1;
+      ui->robot_widget->setCurrentIndex(current_robottab_index);
     });
     
   }
   
+}
+
+/****************************************************** 
+  Functions
+*******************************************************/
+std::pair<bool, std::string> Tangerine::check_signup_validation() {
+  std::pair<bool, std::string> result;
+  result.first = false;
+  if (ui->input_name->text().isEmpty()) {
+    result.second = "Fill Name";
+    return result;
+  }
+  if (ui->input_birthday->text().isEmpty()) {
+    result.second = "Fill Birthday";
+    return result;
+  } else {
+    QRegularExpression rx("^19\\d{2}|20\\d{2}-(0[1-9]|1[0-2])-(0[1-9]|[12]\\d|3[01])$");
+    QRegularExpressionMatch match = rx.match(ui->input_birthday->text());
+    
+    if (!match.hasMatch()) {
+      result.second = "Birthday must be in YYYY-MM-DD format";
+      return result;
+    }
+  }
+  if (ui->input_number->text().isEmpty()) {
+    result.second = "Fill Cell Number";
+    return result;
+  }
+  if (ui->input_userid->text().isEmpty()) {
+    result.second = "Fill User ID";
+    return result;
+  }
+  if (ui->input_email->text().isEmpty()) {
+    result.second = "Fill Email";
+    return result;
+  }
+  if (ui->input_password->text().isEmpty()) {
+    result.second = "Fill Password";
+    return result;
+  }
+  result.first = true;
+  return result;
+}
+
+//void Tangerine::clean_signup_info();
+
+void Tangerine::request_signup() {
+  auto check_result = check_signup_validation();
+  if (!check_result.first) {
+    QMessageBox::warning(this, "Invalid", QString::fromStdString(check_result.second));
+    return;
+  }
+  auto request = std::make_shared<SignUp::Request>();
+  request->name = ui->input_name->text().toStdString();
+  request->birthday = ui->input_birthday->text().toStdString();
+  request->cell_number = ui->input_number->text().toStdString();
+  request->user_id = ui->input_userid->text().toStdString();
+  request->email = ui->input_email->text().toStdString();
+  request->password = ui->input_password->text().toStdString();
+  signup_client->async_send_request(request, std::bind(&Tangerine::signup_response_callback, this, _1));
+  RCLCPP_INFO(node_->get_logger(), "success");
+}
+
+void Tangerine::signup_response_callback(rclcpp::Client<SignUp>::SharedFuture future)
+{
+  auto response = future.get();
+  QTimer::singleShot(0, this, [=]() {
+    if (response->error_code == SignUp::Response::NONE) {
+      QMessageBox::information(this, "Info", "Success Signup!");
+    } else {
+      QMessageBox::information(this, "Info", "Already Exist User ID");
+    }
+  
+    ui->stackedWidget->setCurrentIndex(0);
+  });
+}
+
+void Tangerine::request_follwing() {
+  called_robot = true;
+  if (!called_robot) return;
+
+  QTimer::singleShot(0, this, [=]() {
+    auto request = std::make_shared<HandleCommand::Request>();
+    request->user_id = user_id;
+    request->robot_id = robot_id;
+    if (follow_mode == false) {
+      RCLCPP_INFO(rclcpp::get_logger("rclcpp"), "Request Following");
+      request->type = HandleCommand::Request::FOLLOWING;
+      ui->btn_follow->setText("Stop");
+      auto future_result = handle_command_client->async_send_request(request);
+      auto response = future_result.get();
+      follow_mode = true;
+    } else {
+      request->type = HandleCommand::Request::STOP;
+      ui->btn_follow->setText("Follow");
+      auto future_result = handle_command_client->async_send_request(request);
+      auto response = future_result.get();
+      follow_mode = false;
+    }
+  });
+}
+
+void Tangerine::start_recording() {
+  RecordingDialog dialog(this);
+  dialog.exec();
 }
