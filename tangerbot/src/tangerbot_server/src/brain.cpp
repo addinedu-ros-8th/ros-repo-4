@@ -174,11 +174,11 @@ void Brain::gesture_callback(const tangerbot_msgs::msg::Gesture::SharedPtr msg)
 {   
     std::string robot_id = msg->robot_id;
 
-    if (robot_states_data_[robot_id].main_status != tangerbot_msgs::msg::RobotState::WORKING
-         && robot_states_data_[robot_id].motion_status != tangerbot_msgs::msg::RobotState::FOLLOWING) {
-        RCLCPP_ERROR(this->get_logger(), "Robot %s is not working and following mode.", robot_id.c_str());
-        return;
-    }
+    // if (robot_states_data_[robot_id].main_status != tangerbot_msgs::msg::RobotState::WORKING
+    //      && robot_states_data_[robot_id].motion_status != tangerbot_msgs::msg::RobotState::FOLLOWING) {
+    //     RCLCPP_ERROR(this->get_logger(), "Robot %s is not working and following mode.", robot_id.c_str());
+    //     return;
+    // }
     
     RCLCPP_INFO(this->get_logger(), "Gesture Detecting is started");
     
