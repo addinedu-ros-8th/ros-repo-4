@@ -27,11 +27,8 @@ private:
     float battery;
 
     rclcpp::Publisher<tangerbot_msgs::msg::RobotState>::SharedPtr state_publisher;
-
     rclcpp::Subscription<tangerbot_msgs::msg::RobotPose>::SharedPtr person_pose_subscriber;
-
     rclcpp::Service<tangerbot_msgs::srv::SetState>::SharedPtr set_state_server;
-
     rclcpp::TimerBase::SharedPtr timer_;
 
     void set_state(const std::shared_ptr<tangerbot_msgs::srv::SetState::Request> request,
@@ -39,7 +36,6 @@ private:
     void person_pose_callbacks(const tangerbot_msgs::msg::RobotPose::SharedPtr msg);
     void state_callbacks();
     void update_battery();
-
 public:
     TangerbotManager();
 };
