@@ -15,7 +15,7 @@ set(CMAKE_AUTOUIC_SEARCH_PATHS ${CMAKE_CURRENT_SOURCE_DIR}/ui)
 
 # find dependencies
 find_package(ament_cmake REQUIRED)
-find_package(Qt5 REQUIRED COMPONENTS Widgets)
+find_package(Qt5 REQUIRED COMPONENTS Widgets Multimedia)
 find_package(rclcpp REQUIRED)
 find_package(rviz2 REQUIRED)
 find_package(rviz_common REQUIRED)
@@ -41,6 +41,7 @@ set(SOURCES
   src/image_button.cpp
   src/circular_progressbar.cpp
   src/battery_widget.cpp
+  src/recording_dialog.cpp
 )
 
 set(HEADERS
@@ -48,6 +49,7 @@ set(HEADERS
   include/user_gui/image_button.h
   include/user_gui/circular_progressbar.h
   include/user_gui/battery_widget.h
+  include/user_gui/recording_dialog.h
 )
 
 set(UIS
@@ -81,6 +83,7 @@ ament_target_dependencies(user_gui
 target_link_libraries(
   user_gui
   Qt5::Widgets
+  Qt5::Multimedia
 )
 
 install(TARGETS 

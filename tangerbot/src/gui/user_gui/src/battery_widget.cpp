@@ -42,6 +42,14 @@ void BatteryWidget::paintEvent(QPaintEvent *event) {
     painter.setBrush(QColor(0x00, 0xFF, 0x7F));
     painter.setPen(Qt::NoPen);
     painter.drawRect(fill_rect);
+
+    painter.setPen(Qt::black);
+    QFont font = painter.font();
+    font.setPointSize(15);
+    painter.setFont(font);
+    int min_size = qMin(body_width, body_height);
+    QRect rect(body_x, body_y + body_height * 0.3, min_size, min_size);
+    painter.drawText(rect, Qt::AlignCenter, QString::number(percentage) + "%");
 }
 
 void BatteryWidget::set_percentage(int value) {
