@@ -1,6 +1,7 @@
 #include <chrono>
 
 #include <tangerbot_controller/tangerbot_manager.h>
+#include "rcl_interfaces/msg/parameter_descriptor.hpp"
 using namespace std::chrono_literals;
 using namespace std;
 
@@ -11,18 +12,27 @@ using namespace std;
  ************************************************/
 TangerbotManager::TangerbotManager() : Node("tangerbot_manager")
 {
-    //initalization
+    // initalization
     robot_id = "robot2";
     main_status = tangerbot_msgs::msg::RobotState::IDLE;
     motion_status = tangerbot_msgs::msg::RobotState::STOP;
 
-    //publisher
+    // publisher
     state_publisher = this->create_publisher<tangerbot_msgs::msg::RobotState>("robot_state", 10); 
     timer_ = this->create_wall_timer(500ms, std::bind(&TangerbotManager::state_callbacks, this));
     
-    //subscriber
+    // subscriber
     person_pose_subscriber = this->create_subscription<tangerbot_msgs::msg::RobotPose>(
         "person_pose", 10, std::bind(&TangerbotManager::person_pose_callbacks, this, std::placeholders::_1));
+
+
+    // parameters
+    auto param_desc = rcl_interfaces::msg::ParameterDescriptor{};
+    param_desc.integer_range.resize(1);
+    param_desc.integer_range[0].from_value = 0;
+    param_desc.integer_range[0].to_value = 1000;
+    param_desc.integer_range[0].step = 1;
+    this->declare_parameter("workload", 0);
 }
 //TODO (revise parameter?)
 /************************************************

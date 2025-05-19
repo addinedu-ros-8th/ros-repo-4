@@ -9,11 +9,13 @@ endif()
 find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(tangerbot_msgs REQUIRED)
+find_package(rcl_interfaces REQUIRED)
 
 add_executable(tangerbot_manager src/tangerbot_manager.cpp)
 ament_target_dependencies(tangerbot_manager
   rclcpp
   tangerbot_msgs
+  rcl_interfaces
 )
 target_include_directories(tangerbot_manager PUBLIC
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
