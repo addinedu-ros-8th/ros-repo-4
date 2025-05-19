@@ -85,15 +85,15 @@ private:
     void handle_set_follower(
         const std::shared_ptr<tangerbot_msgs::srv::SetFollowMode::Request> req,
         std::shared_ptr<tangerbot_msgs::srv::SetFollowMode::Response> res) {
-        string tmp = req->robot_id;        
+        string tmp = req->robot_id;
         robot_id_ = stoi(tmp.substr(5));
         robot_id_--;
-        active_ = req->mode;        // 동작 on/off
+        active_ = req->mode;        
         res->success = true;
         RCLCPP_INFO(get_logger(),
-          "[Follower] robot %u %s", robot_id_,
-          active_ ? "ENABLED" : "DISABLED"
+          "[Follower] robot %u %s", robot_id_, active_ ? "ENABLED" : "DISABLED"
         );
+        return;
     }
 
     void point_callback(const geometry_msgs::msg::PointStamped::SharedPtr msg) {
