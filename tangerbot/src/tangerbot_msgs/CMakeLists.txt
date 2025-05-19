@@ -20,21 +20,17 @@ rosidl_generate_interfaces(${PROJECT_NAME}
   "msg/Gesture.msg"
   "msg/CallState.msg"
   "msg/LocalMap.msg"
+  "msg/DetectedMarker.msg"
   "srv/HandleCommand.srv"
   "srv/SetFollowMode.srv"
-<<<<<<< HEAD
-=======
 
   "srv/SignUp.srv"
   "srv/SignIn.srv"
 
-  "srv/SetHumanPoseMode.srv"
->>>>>>> dev
 
   "srv/Speak.srv"
   "srv/HandleRawVoice.srv"
   "srv/SetState.srv"
-  "srv/SignUp.srv"
   "srv/GetWorkload.srv"
   "action/PathPlanning.action"
   DEPENDENCIES geometry_msgs std_msgs nav_msgs # Add packages that above messages depend on, in this case geometry_msgs for Sphere.msg
