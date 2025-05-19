@@ -21,16 +21,11 @@ rosidl_generate_interfaces(${PROJECT_NAME}
   "msg/DecodedVoice.msg"
   "msg/PersonPose.msg"
   "msg/Gesture.msg"
-  
   "msg/LocalMap.msg"
+  "msg/LlmCommand.msg"
   "srv/HandleCommand.srv"
   "srv/SetFollowMode.srv"
-<<<<<<< HEAD
   "srv/SetHumanPoseMode.srv"
-  "srv/PathPlanning.srv"
-=======
- 
->>>>>>> dev
   "srv/Speak.srv"
   "srv/HandleRawVoice.srv"
   "srv/SetState.srv"
