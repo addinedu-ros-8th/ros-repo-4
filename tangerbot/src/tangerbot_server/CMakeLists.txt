@@ -15,10 +15,22 @@ find_package(geometry_msgs REQUIRED)
 find_package(nav2_msgs REQUIRED)
 find_package(nav_msgs REQUIRED)
 find_package(OpenCV REQUIRED)
+find_package(yaml-cpp REQUIRED)
+
+
+find_library(MYSQLCPP_CONN_LIB mysqlcppconn)
+
 
 include_directories(
   include
 )
+
+install(PROGRAMS
+  scripts/llm_node.py
+  scripts/gesture_interpreter_node.py
+  DESTINATION lib/${PROJECT_NAME}
+)
+
 
 add_executable(udp_server
   src/udp_server.cpp
@@ -35,10 +47,36 @@ target_include_directories(path_planner
     ${OpenCV_INCLUDE_DIRS})
 target_link_libraries(path_planner ${OpenCV_LIBS})
 
+
+
+add_executable(following_controller src/following_controller.cpp)
+ament_target_dependencies(following_controller rclcpp rclcpp_action nav_msgs tangerbot_msgs tf2)
+
+target_include_directories(following_controller
+  PUBLIC
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+    $<INSTALL_INTERFACE:include>
+  PRIVATE  
+    ${OpenCV_INCLUDE_DIRS})
+target_link_libraries(following_controller ${OpenCV_LIBS})
+
+
+
 add_executable(brain
   src/brain.cpp
 )
-ament_target_dependencies(brain rclcpp tangerbot_msgs geometry_msgs)
+ament_target_dependencies(brain 
+  rclcpp 
+  rclcpp_action
+  nav2_msgs
+  tangerbot_msgs 
+  geometry_msgs
+)
+
+target_link_libraries(brain 
+  ${YAML_CPP_LIBRARIES}
+  ${MYSQLCPP_CONN_LIB}
+)
 
 
 if(BUILD_TESTING)
@@ -52,6 +90,7 @@ install(TARGETS
   udp_server
   path_planner
   brain
+  following_controller
   DESTINATION lib/${PROJECT_NAME})
 
 install(PROGRAMS

@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>910</width>
-    <height>710</height>
+    <width>1105</width>
+    <height>888</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -104,20 +104,26 @@
                </property>
                <layout class="QVBoxLayout" name="verticalLayout_3">
                 <item>
-                 <widget class="QPushButton" name="pushButton">
+                 <widget class="QPushButton" name="pushButton_1">
                   <property name="sizePolicy">
                    <sizepolicy hsizetype="Minimum" vsizetype="MinimumExpanding">
                     <horstretch>0</horstretch>
                     <verstretch>0</verstretch>
                    </sizepolicy>
                   </property>
+                  <property name="styleSheet">
+                   <string notr="true"/>
+                  </property>
                   <property name="text">
-                   <string>PushButton</string>
+                   <string/>
                   </property>
                  </widget>
                 </item>
                 <item>
                  <widget class="QLabel" name="label_2">
+                  <property name="enabled">
+                   <bool>true</bool>
+                  </property>
                   <property name="sizePolicy">
                    <sizepolicy hsizetype="Preferred" vsizetype="Minimum">
                     <horstretch>0</horstretch>
@@ -157,8 +163,11 @@
                     <verstretch>0</verstretch>
                    </sizepolicy>
                   </property>
+                  <property name="styleSheet">
+                   <string notr="true"/>
+                  </property>
                   <property name="text">
-                   <string>PushButton</string>
+                   <string/>
                   </property>
                  </widget>
                 </item>
@@ -203,8 +212,11 @@
                     <verstretch>0</verstretch>
                    </sizepolicy>
                   </property>
+                  <property name="styleSheet">
+                   <string notr="true"/>
+                  </property>
                   <property name="text">
-                   <string>PushButton</string>
+                   <string/>
                   </property>
                  </widget>
                 </item>
@@ -249,8 +261,11 @@
                     <verstretch>0</verstretch>
                    </sizepolicy>
                   </property>
+                  <property name="styleSheet">
+                   <string notr="true"/>
+                  </property>
                   <property name="text">
-                   <string>PushButton</string>
+                   <string/>
                   </property>
                  </widget>
                 </item>
@@ -295,8 +310,11 @@
                     <verstretch>0</verstretch>
                    </sizepolicy>
                   </property>
+                  <property name="styleSheet">
+                   <string notr="true"/>
+                  </property>
                   <property name="text">
-                   <string>PushButton</string>
+                   <string/>
                   </property>
                  </widget>
                 </item>
@@ -345,7 +363,7 @@
              <item row="0" column="0">
               <widget class="QStackedWidget" name="stackedWidget">
                <property name="currentIndex">
-                <number>4</number>
+                <number>3</number>
                </property>
                <widget class="QWidget" name="page1">
                 <layout class="QGridLayout" name="gridLayout_4">
@@ -378,7 +396,7 @@
                          <property name="sizePolicy">
                           <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
                            <horstretch>0</horstretch>
-                           <verstretch>4</verstretch>
+                           <verstretch>2</verstretch>
                           </sizepolicy>
                          </property>
                          <property name="frameShape">
@@ -387,7 +405,25 @@
                          <property name="frameShadow">
                           <enum>QFrame::Raised</enum>
                          </property>
-                         <layout class="QVBoxLayout" name="verticalLayout_10"/>
+                         <layout class="QVBoxLayout" name="verticalLayout_10">
+                          <item>
+                           <widget class="QLabel" name="label_17">
+                            <property name="baseSize">
+                             <size>
+                              <width>0</width>
+                              <height>6</height>
+                             </size>
+                            </property>
+                            <property name="styleSheet">
+                             <string notr="true">background-color:white;
+color:black;</string>
+                            </property>
+                            <property name="text">
+                             <string>map</string>
+                            </property>
+                           </widget>
+                          </item>
+                         </layout>
                         </widget>
                        </item>
                        <item>
@@ -410,7 +446,7 @@
                             <property name="sizePolicy">
                              <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
                               <horstretch>8</horstretch>
-                              <verstretch>0</verstretch>
+                              <verstretch>7</verstretch>
                              </sizepolicy>
                             </property>
                             <property name="frameShape">
@@ -419,6 +455,269 @@
                             <property name="frameShadow">
                              <enum>QFrame::Raised</enum>
                             </property>
+                            <widget class="QLabel" name="label_18">
+                             <property name="geometry">
+                              <rect>
+                               <x>0</x>
+                               <y>4</y>
+                               <width>521</width>
+                               <height>131</height>
+                              </rect>
+                             </property>
+                             <property name="styleSheet">
+                              <string notr="true">background-color:white;
+color:black;</string>
+                             </property>
+                             <property name="text">
+                              <string/>
+                             </property>
+                            </widget>
+                            <widget class="QFrame" name="frame_31">
+                             <property name="geometry">
+                              <rect>
+                               <x>10</x>
+                               <y>10</y>
+                               <width>151</width>
+                               <height>121</height>
+                              </rect>
+                             </property>
+                             <property name="styleSheet">
+                              <string notr="true">background-color:black;</string>
+                             </property>
+                             <property name="frameShape">
+                              <enum>QFrame::StyledPanel</enum>
+                             </property>
+                             <property name="frameShadow">
+                              <enum>QFrame::Raised</enum>
+                             </property>
+                             <widget class="QLabel" name="label_7">
+                              <property name="geometry">
+                               <rect>
+                                <x>10</x>
+                                <y>10</y>
+                                <width>66</width>
+                                <height>19</height>
+                               </rect>
+                              </property>
+                              <property name="text">
+                               <string>Robot1</string>
+                              </property>
+                             </widget>
+                             <widget class="QLabel" name="label_10">
+                              <property name="geometry">
+                               <rect>
+                                <x>10</x>
+                                <y>40</y>
+                                <width>21</width>
+                                <height>19</height>
+                               </rect>
+                              </property>
+                              <property name="text">
+                               <string>TextLabel</string>
+                              </property>
+                             </widget>
+                             <widget class="QLabel" name="label_13">
+                              <property name="geometry">
+                               <rect>
+                                <x>12</x>
+                                <y>80</y>
+                                <width>21</width>
+                                <height>19</height>
+                               </rect>
+                              </property>
+                              <property name="text">
+                               <string>TextLabel</string>
+                              </property>
+                             </widget>
+                             <widget class="QLabel" name="label_16">
+                              <property name="geometry">
+                               <rect>
+                                <x>50</x>
+                                <y>40</y>
+                                <width>71</width>
+                                <height>21</height>
+                               </rect>
+                              </property>
+                              <property name="text">
+                               <string>state</string>
+                              </property>
+                             </widget>
+                             <widget class="QLabel" name="label_27">
+                              <property name="geometry">
+                               <rect>
+                                <x>50</x>
+                                <y>80</y>
+                                <width>71</width>
+                                <height>21</height>
+                               </rect>
+                              </property>
+                              <property name="text">
+                               <string>level</string>
+                              </property>
+                             </widget>
+                            </widget>
+                            <widget class="QFrame" name="frame_32">
+                             <property name="geometry">
+                              <rect>
+                               <x>180</x>
+                               <y>10</y>
+                               <width>161</width>
+                               <height>121</height>
+                              </rect>
+                             </property>
+                             <property name="frameShape">
+                              <enum>QFrame::StyledPanel</enum>
+                             </property>
+                             <property name="frameShadow">
+                              <enum>QFrame::Raised</enum>
+                             </property>
+                             <widget class="QLabel" name="label_8">
+                              <property name="geometry">
+                               <rect>
+                                <x>10</x>
+                                <y>10</y>
+                                <width>66</width>
+                                <height>19</height>
+                               </rect>
+                              </property>
+                              <property name="text">
+                               <string>Robot2</string>
+                              </property>
+                             </widget>
+                             <widget class="QLabel" name="label_11">
+                              <property name="geometry">
+                               <rect>
+                                <x>10</x>
+                                <y>40</y>
+                                <width>21</width>
+                                <height>19</height>
+                               </rect>
+                              </property>
+                              <property name="text">
+                               <string>TextLabel</string>
+                              </property>
+                             </widget>
+                             <widget class="QLabel" name="label_14">
+                              <property name="geometry">
+                               <rect>
+                                <x>11</x>
+                                <y>80</y>
+                                <width>21</width>
+                                <height>19</height>
+                               </rect>
+                              </property>
+                              <property name="text">
+                               <string>TextLabel</string>
+                              </property>
+                             </widget>
+                             <widget class="QLabel" name="label_28">
+                              <property name="geometry">
+                               <rect>
+                                <x>60</x>
+                                <y>40</y>
+                                <width>71</width>
+                                <height>21</height>
+                               </rect>
+                              </property>
+                              <property name="text">
+                               <string>state</string>
+                              </property>
+                             </widget>
+                             <widget class="QLabel" name="label_30">
+                              <property name="geometry">
+                               <rect>
+                                <x>60</x>
+                                <y>80</y>
+                                <width>71</width>
+                                <height>21</height>
+                               </rect>
+                              </property>
+                              <property name="text">
+                               <string>level</string>
+                              </property>
+                             </widget>
+                            </widget>
+                            <widget class="QFrame" name="frame_33">
+                             <property name="geometry">
+                              <rect>
+                               <x>360</x>
+                               <y>10</y>
+                               <width>151</width>
+                               <height>121</height>
+                              </rect>
+                             </property>
+                             <property name="frameShape">
+                              <enum>QFrame::StyledPanel</enum>
+                             </property>
+                             <property name="frameShadow">
+                              <enum>QFrame::Raised</enum>
+                             </property>
+                             <widget class="QLabel" name="label_9">
+                              <property name="geometry">
+                               <rect>
+                                <x>10</x>
+                                <y>10</y>
+                                <width>66</width>
+                                <height>19</height>
+                               </rect>
+                              </property>
+                              <property name="text">
+                               <string>Robot3</string>
+                              </property>
+                             </widget>
+                             <widget class="QLabel" name="label_12">
+                              <property name="geometry">
+                               <rect>
+                                <x>10</x>
+                                <y>40</y>
+                                <width>21</width>
+                                <height>19</height>
+                               </rect>
+                              </property>
+                              <property name="text">
+                               <string>TextLabel</string>
+                              </property>
+                             </widget>
+                             <widget class="QLabel" name="label_15">
+                              <property name="geometry">
+                               <rect>
+                                <x>10</x>
+                                <y>80</y>
+                                <width>21</width>
+                                <height>19</height>
+                               </rect>
+                              </property>
+                              <property name="text">
+                               <string>TextLabel</string>
+                              </property>
+                             </widget>
+                             <widget class="QLabel" name="label_29">
+                              <property name="geometry">
+                               <rect>
+                                <x>60</x>
+                                <y>40</y>
+                                <width>71</width>
+                                <height>21</height>
+                               </rect>
+                              </property>
+                              <property name="text">
+                               <string>state</string>
+                              </property>
+                             </widget>
+                             <widget class="QLabel" name="label_31">
+                              <property name="geometry">
+                               <rect>
+                                <x>60</x>
+                                <y>80</y>
+                                <width>71</width>
+                                <height>21</height>
+                               </rect>
+                              </property>
+                              <property name="text">
+                               <string>level</string>
+                              </property>
+                             </widget>
+                            </widget>
                            </widget>
                           </item>
                           <item>
@@ -435,6 +734,23 @@
                             <property name="frameShadow">
                              <enum>QFrame::Raised</enum>
                             </property>
+                            <widget class="QLabel" name="label_19">
+                             <property name="geometry">
+                              <rect>
+                               <x>7</x>
+                               <y>4</y>
+                               <width>121</width>
+                               <height>131</height>
+                              </rect>
+                             </property>
+                             <property name="styleSheet">
+                              <string notr="true">background-color:white;
+color:black;</string>
+                             </property>
+                             <property name="text">
+                              <string>harvest</string>
+                             </property>
+                            </widget>
                            </widget>
                           </item>
                          </layout>
@@ -457,6 +773,125 @@
                       <property name="frameShadow">
                        <enum>QFrame::Raised</enum>
                       </property>
+                      <widget class="QLabel" name="label_20">
+                       <property name="geometry">
+                        <rect>
+                         <x>-10</x>
+                         <y>0</y>
+                         <width>311</width>
+                         <height>491</height>
+                        </rect>
+                       </property>
+                       <property name="styleSheet">
+                        <string notr="true">background-color:#FFEBCD;
+</string>
+                       </property>
+                       <property name="text">
+                        <string/>
+                       </property>
+                      </widget>
+                      <widget class="QLabel" name="label_21">
+                       <property name="geometry">
+                        <rect>
+                         <x>100</x>
+                         <y>330</y>
+                         <width>91</width>
+                         <height>31</height>
+                        </rect>
+                       </property>
+                       <property name="styleSheet">
+                        <string notr="true">background-color:white;
+color:black;</string>
+                       </property>
+                       <property name="text">
+                        <string>pinky3</string>
+                       </property>
+                      </widget>
+                      <widget class="QLabel" name="label_22">
+                       <property name="geometry">
+                        <rect>
+                         <x>20</x>
+                         <y>50</y>
+                         <width>251</width>
+                         <height>111</height>
+                        </rect>
+                       </property>
+                       <property name="styleSheet">
+                        <string notr="true">background-color:white;
+color:black;</string>
+                       </property>
+                       <property name="text">
+                        <string>camera</string>
+                       </property>
+                      </widget>
+                      <widget class="QLabel" name="label_23">
+                       <property name="geometry">
+                        <rect>
+                         <x>100</x>
+                         <y>170</y>
+                         <width>91</width>
+                         <height>31</height>
+                        </rect>
+                       </property>
+                       <property name="styleSheet">
+                        <string notr="true">background-color:white;
+color:black;</string>
+                       </property>
+                       <property name="text">
+                        <string>pinky2</string>
+                       </property>
+                      </widget>
+                      <widget class="QLabel" name="label_24">
+                       <property name="geometry">
+                        <rect>
+                         <x>20</x>
+                         <y>210</y>
+                         <width>251</width>
+                         <height>111</height>
+                        </rect>
+                       </property>
+                       <property name="styleSheet">
+                        <string notr="true">background-color:white;
+color:black;</string>
+                       </property>
+                       <property name="text">
+                        <string>camera</string>
+                       </property>
+                      </widget>
+                      <widget class="QLabel" name="label_25">
+                       <property name="geometry">
+                        <rect>
+                         <x>100</x>
+                         <y>10</y>
+                         <width>91</width>
+                         <height>31</height>
+                        </rect>
+                       </property>
+                       <property name="styleSheet">
+                        <string notr="true">background-color:white;
+color:black;</string>
+                       </property>
+                       <property name="text">
+                        <string>pinky1</string>
+                       </property>
+                      </widget>
+                      <widget class="QLabel" name="label_26">
+                       <property name="geometry">
+                        <rect>
+                         <x>20</x>
+                         <y>370</y>
+                         <width>251</width>
+                         <height>111</height>
+                        </rect>
+                       </property>
+                       <property name="styleSheet">
+                        <string notr="true">background-color:white;
+color:black;</string>
+                       </property>
+                       <property name="text">
+                        <string>camera</string>
+                       </property>
+                      </widget>
                      </widget>
                     </item>
                    </layout>
@@ -539,6 +974,11 @@
                            <verstretch>9</verstretch>
                           </sizepolicy>
                          </property>
+                         <property name="styleSheet">
+                          <string notr="true">background-color:white;
+color:black;
+</string>
+                         </property>
                          <column>
                           <property name="text">
                            <string>User ID</string>
@@ -556,7 +996,7 @@
                          </column>
                          <column>
                           <property name="text">
-                           <string>New Column</string>
+                           <string>command</string>
                           </property>
                          </column>
                          <column>
@@ -636,6 +1076,19 @@
                       <property name="frameShadow">
                        <enum>QFrame::Raised</enum>
                       </property>
+                      <widget class="QLabel" name="label_32">
+                       <property name="geometry">
+                        <rect>
+                         <x>10</x>
+                         <y>0</y>
+                         <width>961</width>
+                         <height>431</height>
+                        </rect>
+                       </property>
+                       <property name="text">
+                        <string>plot</string>
+                       </property>
+                      </widget>
                      </widget>
                     </item>
                    </layout>
@@ -671,6 +1124,49 @@
                          <property name="frameShadow">
                           <enum>QFrame::Raised</enum>
                          </property>
+                         <widget class="QLabel" name="label_33">
+                          <property name="geometry">
+                           <rect>
+                            <x>-30</x>
+                            <y>0</y>
+                            <width>531</width>
+                            <height>171</height>
+                           </rect>
+                          </property>
+                          <property name="styleSheet">
+                           <string notr="true">background-color:white
+</string>
+                          </property>
+                          <property name="text">
+                           <string>TextLabel</string>
+                          </property>
+                         </widget>
+                         <widget class="QLabel" name="label_36">
+                          <property name="geometry">
+                           <rect>
+                            <x>30</x>
+                            <y>40</y>
+                            <width>91</width>
+                            <height>81</height>
+                           </rect>
+                          </property>
+                          <property name="text">
+                           <string/>
+                          </property>
+                         </widget>
+                         <widget class="QLabel" name="label_39">
+                          <property name="geometry">
+                           <rect>
+                            <x>190</x>
+                            <y>40</y>
+                            <width>251</width>
+                            <height>81</height>
+                           </rect>
+                          </property>
+                          <property name="text">
+                           <string/>
+                          </property>
+                         </widget>
                         </widget>
                        </item>
                        <item>
@@ -681,6 +1177,48 @@
                          <property name="frameShadow">
                           <enum>QFrame::Raised</enum>
                          </property>
+                         <widget class="QLabel" name="label_34">
+                          <property name="geometry">
+                           <rect>
+                            <x>-20</x>
+                            <y>-30</y>
+                            <width>511</width>
+                            <height>201</height>
+                           </rect>
+                          </property>
+                          <property name="styleSheet">
+                           <string notr="true">background-color:white</string>
+                          </property>
+                          <property name="text">
+                           <string/>
+                          </property>
+                         </widget>
+                         <widget class="QLabel" name="label_37">
+                          <property name="geometry">
+                           <rect>
+                            <x>30</x>
+                            <y>30</y>
+                            <width>91</width>
+                            <height>81</height>
+                           </rect>
+                          </property>
+                          <property name="text">
+                           <string/>
+                          </property>
+                         </widget>
+                         <widget class="QLabel" name="label_40">
+                          <property name="geometry">
+                           <rect>
+                            <x>190</x>
+                            <y>30</y>
+                            <width>251</width>
+                            <height>81</height>
+                           </rect>
+                          </property>
+                          <property name="text">
+                           <string/>
+                          </property>
+                         </widget>
                         </widget>
                        </item>
                        <item>
@@ -691,6 +1229,48 @@
                          <property name="frameShadow">
                           <enum>QFrame::Raised</enum>
                          </property>
+                         <widget class="QLabel" name="label_35">
+                          <property name="geometry">
+                           <rect>
+                            <x>-20</x>
+                            <y>-30</y>
+                            <width>511</width>
+                            <height>201</height>
+                           </rect>
+                          </property>
+                          <property name="styleSheet">
+                           <string notr="true">background-color:white</string>
+                          </property>
+                          <property name="text">
+                           <string/>
+                          </property>
+                         </widget>
+                         <widget class="QLabel" name="label_38">
+                          <property name="geometry">
+                           <rect>
+                            <x>30</x>
+                            <y>30</y>
+                            <width>91</width>
+                            <height>81</height>
+                           </rect>
+                          </property>
+                          <property name="text">
+                           <string/>
+                          </property>
+                         </widget>
+                         <widget class="QLabel" name="label_41">
+                          <property name="geometry">
+                           <rect>
+                            <x>190</x>
+                            <y>30</y>
+                            <width>251</width>
+                            <height>81</height>
+                           </rect>
+                          </property>
+                          <property name="text">
+                           <string/>
+                          </property>
+                         </widget>
                         </widget>
                        </item>
                       </layout>
@@ -704,6 +1284,30 @@
                       <property name="frameShadow">
                        <enum>QFrame::Raised</enum>
                       </property>
+                      <widget class="QTableWidget" name="tableWidget_2">
+                       <property name="geometry">
+                        <rect>
+                         <x>30</x>
+                         <y>30</y>
+                         <width>441</width>
+                         <height>431</height>
+                        </rect>
+                       </property>
+                       <property name="styleSheet">
+                        <string notr="true">background-color:white;
+color:black;</string>
+                       </property>
+                       <column>
+                        <property name="text">
+                         <string>worker</string>
+                        </property>
+                       </column>
+                       <column>
+                        <property name="text">
+                         <string>work time</string>
+                        </property>
+                       </column>
+                      </widget>
                      </widget>
                     </item>
                    </layout>
@@ -743,7 +1347,7 @@
     <rect>
      <x>0</x>
      <y>0</y>
-     <width>910</width>
+     <width>1105</width>
      <height>24</height>
     </rect>
    </property>

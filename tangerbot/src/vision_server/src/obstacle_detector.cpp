@@ -85,30 +85,29 @@ using namespace shm;
 class ObstacleDetector : public rclcpp::Node {
 public:
 	ObstacleDetector()
-		: Node("obstacle_detector_node"),
-		shm_seg_(nullptr) {
+		: Node("obstacle_detector_node"), shm_seg_(nullptr) {
 			declare_parameter<std::string>("calib_file", ament_index_cpp::get_package_share_directory("vision_server") + "/config/calibration_data.yml");
 			get_parameter("calib_file", calib_file_);
 			
-			// 1. 공유 메모리 열기
+			// 공유 메모리 열기
 			shm_seg_ = shm::open(false);
 			if (!shm_seg_) {
 				throw std::runtime_error("shared memory open failed");
 			}
 
-			// 2. 카메라 파라미터 로드
+			// 카메라 파라미터 로드
 			loadCalibration();
 
-			// 3. SGM 초기화
+			// SGM 초기화
 			initSGM();
 
-			// 4. Top‑Down 뷰 초기화
+			// Top‑Down 뷰 초기화
 			tdv_ = std::make_unique<TopDownView>(cam_param_, 0.05f, 1.0f, 1.0f);
 
-			// 5. LocalMap 퍼블리셔
+			// LocalMap 퍼블리셔
 			map_pub_ = create_publisher<tangerbot_msgs::msg::LocalMap>("local_map", 10);
 
-			// 6. 주기 타이머 (30 ms)
+			// 주기 타이머 (30 ms)
 			timer_ = create_wall_timer(30ms, std::bind(&ObstacleDetector::processOnce, this));
 
 			// 디버그 창
@@ -181,7 +180,6 @@ private:
 	}
 	*/
 
-
 	void initSGM() {
 	    const int disp_size = 256;
 	    const int src_depth = 8;
@@ -190,9 +188,9 @@ private:
 	    const int height = cam_size_.height;
 
 	    sgm::StereoSGM::Parameters params;
-	    params.P1 = 35;
-	    params.P2 = 110;
-	    params.uniqueness = 0.90f;
+	    params.P1 = 50;
+	    params.P2 = 200;
+	    params.uniqueness = 0.9f;
 	    params.LR_max_diff = 1;
 	    params.census_type = sgm::CensusType::SYMMETRIC_CENSUS_9x7;
 
@@ -217,8 +215,8 @@ private:
 	}
 
 	// Shared Memory JPEG 읽기 -> GRAY 
-	bool readSharedGray(int cam_idx, cv::Mat& gray) {
-		Slot& slot = shm_seg_->cam[cam_idx];
+	bool readSharedGray(int robot_id, int cam_idx, cv::Mat& gray) {
+		Slot& slot = shm_seg_->cam[robot_id][cam_idx];
 		uint32_t size = slot.size.load(std::memory_order_acquire);
 		if (size == 0 || size > MAX_IMG) return false;
 
@@ -234,7 +232,9 @@ private:
 	void processOnce() {
 		// 1) Grab two GRAY frames
 		cv::Mat gray_l, gray_r;
-		if (!readSharedGray(0, gray_l) || !readSharedGray(1, gray_r)) return;
+
+		constexpr int ROBOT_ID = 1;	// default robot id
+		if (!readSharedGray(ROBOT_ID, 0, gray_l) || !readSharedGray(ROBOT_ID, 1, gray_r)) return;
 
 		// 2) Rectify
 		cv::remap(gray_l, gray_rect_l_, map1x_, map1y_, cv::INTER_LINEAR);

@@ -9,13 +9,14 @@ option(USE_LIBSGM "Enable libSGM + CUDA-based obstacle detection" OFF)
 find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(std_msgs REQUIRED)
+find_package(sensor_msgs REQUIRED)
 find_package(OpenCV REQUIRED)
 find_package(tangerbot_msgs REQUIRED)
 find_package(ament_index_cpp REQUIRED)
 
 # ----------- libSGM + CUDA 관련 분기 ----------
 if(USE_LIBSGM)
-  message(STATUS "✅ libSGM + CUDA 빌드 활성화됨")
+  message(STATUS "libSGM + CUDA 빌드 활성화")
 
   # CUDA 설정
   set(CUDA_TOOLKIT_ROOT_DIR "/usr/local/cuda")
@@ -49,9 +50,14 @@ if(USE_LIBSGM)
     std_msgs
     tangerbot_msgs
     OpenCV
+    ament_index_cpp
   )
   target_link_libraries(follower
     ${OpenCV_LIBS}
+    ${OpenCV_LIBS}
+    ${CUDA_LIBRARIES}
+    ${LIBSGM_LIB}
+    sample_common
   )
   target_include_directories(follower PRIVATE
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
@@ -74,25 +80,53 @@ if(USE_LIBSGM)
   target_include_directories(obstacle_detector PRIVATE
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
   )
-  # streamer 노드
-  add_executable(streamer src/streamer.cpp)
-  ament_target_dependencies(streamer
-    rclcpp
-    std_msgs
-    tangerbot_msgs
-    OpenCV
-    ament_index_cpp
-  )
-  target_link_libraries(streamer
-    ${OpenCV_LIBS}
-    ${CUDA_LIBRARIES}
-    ${LIBSGM_LIB}
-    sample_common
-  )
-  target_include_directories(streamer PRIVATE
-    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
-  )
 endif()
+
+# streamer 노드
+add_executable(streamer src/streamer.cpp)
+ament_target_dependencies(streamer
+  rclcpp
+  std_msgs
+  tangerbot_msgs
+  OpenCV
+  ament_index_cpp
+)
+target_link_libraries(streamer
+  ${OpenCV_LIBS}
+)
+target_include_directories(streamer PRIVATE
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+)
+
+# obstacle_checker 노드
+add_executable(obstacle_checker src/obstacle_checker.cpp)
+ament_target_dependencies(obstacle_checker
+  rclcpp
+  std_msgs
+  sensor_msgs
+  ament_index_cpp
+)
+target_link_libraries(obstacle_checker
+  ${OpenCV_LIBS}
+)
+target_include_directories(obstacle_checker PRIVATE
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+)
+
+# picam_receiver 노드
+add_executable(picam_receiver src/picam_receiver.cpp)
+ament_target_dependencies(picam_receiver
+  rclcpp
+  std_msgs
+  OpenCV
+)
+target_link_libraries(picam_receiver
+  ${OpenCV_LIBS}
+)
+target_include_directories(picam_receiver PRIVATE
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+)
+
 # ----------- Python 노드 설치 ----------
 install(PROGRAMS
   scripts/gesture_node.py
@@ -106,13 +140,18 @@ if(USE_LIBSGM)
     follower
     sample_common
     obstacle_detector
-    streamer
   )
 endif()
+
+# ----------- C++ 노드 설치 ----------
 install(TARGETS
   ${TARGETS_TO_INSTALL}
+  obstacle_checker
+  picam_receiver
+  streamer
   DESTINATION lib/${PROJECT_NAME}
 )
+
 # calibration_data.yml 설치 추가
 install(DIRECTORY config
   DESTINATION share/${PROJECT_NAME}
