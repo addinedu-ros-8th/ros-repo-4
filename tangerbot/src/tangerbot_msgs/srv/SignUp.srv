@@ -1,6 +1,7 @@
 string name
 string birthday
 string cell_number
+<<<<<<< HEAD
 string user_id 
 string email
 string password
@@ -12,3 +13,12 @@ uint8 error_code
 # type 
 uint8 NONE=0
 uint8 EXIST=1
+=======
+string user_id
+string email
+string password
+---
+uint8 error_code
+uint8 NONE = 0
+uint8 EXIST = 1 
+>>>>>>> dev

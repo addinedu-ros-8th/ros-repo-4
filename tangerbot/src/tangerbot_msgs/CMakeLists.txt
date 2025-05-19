@@ -22,6 +22,14 @@ rosidl_generate_interfaces(${PROJECT_NAME}
   "msg/LocalMap.msg"
   "srv/HandleCommand.srv"
   "srv/SetFollowMode.srv"
+<<<<<<< HEAD
+=======
+
+  "srv/SignUp.srv"
+  "srv/SignIn.srv"
+
+  "srv/SetHumanPoseMode.srv"
+>>>>>>> dev
 
   "srv/Speak.srv"
   "srv/HandleRawVoice.srv"

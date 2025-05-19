@@ -3,12 +3,12 @@
 #include <yaml-cpp/yaml.h>
 
 //sql
-#include <mysql_driver.h>
-#include <mysql_connection.h>
-#include <cppconn/driver.h>
-#include <cppconn/statement.h>
-#include <cppconn/prepared_statement.h>
-#include <cppconn/resultset.h>
+// #include <mysql_driver.h>
+// #include <mysql_connection.h>
+// #include <cppconn/driver.h>
+// #include <cppconn/statement.h>
+// #include <cppconn/prepared_statement.h>
+// #include <cppconn/resultset.h>
 
 
 #include <iostream>
@@ -33,6 +33,14 @@ Brain::Brain() : Node("brain") {
         "handle_command",
         std::bind(&Brain::handle_command_service_callback, this, _1, _2)
     );
+    signup_server_ = this->create_service<SignUp>(
+        "sign_up",
+        std::bind(&Brain::signup_callback, this, _1, _2)
+    );
+    // signin_server_ = this->create_service<SignIn>(
+    //     "sign_in",
+    //     std::bind(&Brain::signin_callback, this, _1, _2)
+    // );
 
     //Service Client
     get_workload_client_ = this->create_client<GetWorkload>("get_workload");
@@ -41,6 +49,7 @@ Brain::Brain() : Node("brain") {
     set_human_pose_mode_client_ = this->create_client<SetFollowMode>("/set_human_pose_follow_mode");
     set_state_client_ = this->create_client<SetState>("set_state");
     redirect_client_ = this->create_client<Redirect>("redirect");
+
 
     //Action Client
     path_planning_client_ = rclcpp_action::create_client<tangerbot_msgs::action::PathPlanning>(this, "path_planning");
@@ -54,17 +63,20 @@ Brain::Brain() : Node("brain") {
         "/obstacle_bool", 10,
         std::bind(&Brain::obstacle_callback, this, std::placeholders::_1)
     );
+    gesture_subscriber_ = this->create_subscription<Gesture>(
+        "gesture", 10, std::bind(&Brain::gesture_callback, this, _1)
+    );
 
     //publisher
     cmd_vel_publisher_ = this->create_publisher<geometry_msgs::msg::Twist>("cmd_vel", 10);
     call_state_publisher_ = this->create_publisher<tangerbot_msgs::msg::CallState>("call_state", 10);
 
     //connect database
-    sql::mysql::MySQL_Driver* driver = sql::mysql::get_mysql_driver_instance();
-    std::unique_ptr<sql::Connection> con(driver->connect("tcp://127.0.0.1:3306", "root", "0119"));
-    con->setSchema("tgdb");
+    db_driver_ = sql::mysql::get_mysql_driver_instance();
+    db = std::unique_ptr<sql::Connection> (db_driver_->connect("tcp://127.0.0.1:3306", "root", "0119"));
+    db->setSchema("tgdb");
 
-    std::unique_ptr<sql::PreparedStatement> pstmt(con->prepareStatement("SELECT sectionName, ST_AsText(coordinate) AS coordinate FROM Section"));
+    std::unique_ptr<sql::PreparedStatement> pstmt(db->prepareStatement("SELECT sectionName, ST_AsText(coordinate) AS coordinate FROM Section"));
     std::unique_ptr<sql::ResultSet> res(pstmt->executeQuery());
 
     for (int i = 0; i < res->rowsCount(); ++i) {
@@ -100,10 +112,98 @@ Brain::~Brain(){
 }
 
 
+
+
+void Brain::signup_callback(const std::shared_ptr<tangerbot_msgs::srv::SignUp::Request> request,
+    const std::shared_ptr<tangerbot_msgs::srv::SignUp::Response> response)
+{   
+    RCLCPP_INFO(this->get_logger(), "Sign Up Request Received");
+
+    //check user info
+    std::string user_name = request->name;
+
+    //check if the user exists in the database
+    std::unique_ptr<sql::PreparedStatement> pstmt(db->prepareStatement("SELECT * FROM User WHERE userName = ?"));
+    pstmt->setString(1, user_name);
+    std::unique_ptr<sql::ResultSet> res(pstmt->executeQuery());
+
+    if (res->next()) {
+        RCLCPP_INFO(this->get_logger(), "User %s exists", user_name.c_str());
+        response->error_code=tangerbot_msgs::srv::SignUp::Response::EXIST; //EXIST
+        return;
+    }
+    response->error_code = tangerbot_msgs::srv::SignUp::Response::NONE; //NONE
+    //insert new user
+    pstmt.reset(db->prepareStatement("INSERT INTO User (userName, dob, callNumber, email, password, UID) VALUES (?, ?, ?, ?, ?, ?)"));
+    pstmt->setString(1, request->name);
+    pstmt->setString(2, request->birthday);
+    pstmt->setString(3, request->cell_number);
+    pstmt->setString(4, request->email);
+    pstmt->setString(5, request->password);
+    pstmt->setString(6, request->user_id);
+    pstmt->execute();
+}
+
+
+
+// void Brain::signin_callback(const std::shared_ptr<tangerbot_msgs::srv::SignIn::Request> request,
+//     const std::shared_ptr<tangerbot_msgs::srv::SignIn::Response> response)
+// {
+//     RCLCPP_INFO(this->get_logger(), "Sign In Request Received");
+
+//     std::unique_ptr<sql::PreparedStatement> pstmt(db->prepareStatement("SELECT * FROM User WHERE userName = ?"));
+//     pstmt->setString(1, user_name);
+//     std::unique_ptr<sql::ResultSet> res(pstmt->executeQuery());
+
+//     //if user exists -> check if password match
+//     //else -> return error code
+// }
+
+
+
 void Brain::robot_state_callback(const RobotState::SharedPtr msg) 
 {
     robot_states_data_[msg->robot_id] = *msg;
 }
+
+
+
+
+
+void Brain::gesture_callback(const tangerbot_msgs::msg::Gesture::SharedPtr msg)
+{   
+    std::string robot_id = msg->robot_id;
+
+    if (robot_states_data_[robot_id].main_status != tangerbot_msgs::msg::RobotState::WORKING
+         && robot_states_data_[robot_id].motion_status != tangerbot_msgs::msg::RobotState::FOLLOWING) {
+        RCLCPP_ERROR(this->get_logger(), "Robot %s is not working and following mode.", robot_id.c_str());
+        return;
+    }
+    
+    RCLCPP_INFO(this->get_logger(), "Gesture Detecting is started");
+    
+    uint8_t gesture = msg->gesture;
+
+    switch (gesture){
+        case tangerbot_msgs::msg::Gesture::COME:
+            RCLCPP_INFO(this->get_logger(), "Gesture COME");
+            break;
+
+        case tangerbot_msgs::msg::Gesture::STOP:
+            RCLCPP_INFO(this->get_logger(), "Gesture STOP");
+            break;
+
+        case tangerbot_msgs::msg::Gesture::BACK:
+            RCLCPP_INFO(this->get_logger(), "Gesture BACK");
+            break;  
+        
+        default:
+            RCLCPP_INFO(this->get_logger(), "Unknown Gesture");
+            break;
+    }
+}
+
+
 
 
 void Brain::obstacle_callback(const std_msgs::msg::Bool::SharedPtr msg)
@@ -115,6 +215,7 @@ void Brain::obstacle_callback(const std_msgs::msg::Bool::SharedPtr msg)
         obstacle_detected_ = false;
     }
 }
+
 
 
 
@@ -371,11 +472,15 @@ void Brain::move_to_section(const geometry_msgs::msg::PoseStamped& goal_pose)
                     }
                     RCLCPP_INFO(this->get_logger(), "Path Replanning Re-Requested");
                 }
-                
             }
         }
     }
 }
+
+
+
+
+
 
 void Brain::handle_command_service_callback( 
     const std::shared_ptr<tangerbot_msgs::srv::HandleCommand::Request> request,
@@ -394,6 +499,8 @@ void Brain::handle_command_service_callback(
     
     if (command == request->FOLLOWING) {
         std::string robot_id = request->robot_id;
+
+
         auto follow_req = std::make_shared<SetFollowMode::Request>();
         follow_req->robot_id = robot_id;
         follow_req->mode = true;
@@ -427,21 +534,27 @@ void Brain::handle_command_service_callback(
 
         RCLCPP_INFO(this->get_logger(), "Following mode activated for robot: %s", robot_id.c_str());
         response->success = true;
+
+
+        // 4. Gesture On
+        
         return;
     }
 
     response->success = true;
 }
 
+
+
+
+
+
 int main(int argc, char ** argv) {
     rclcpp::init(argc, argv);
     auto node = std::make_shared<Brain>();
-
     rclcpp::executors::MultiThreadedExecutor executor;
     executor.add_node(node);
-
     executor.spin();
-
     rclcpp::shutdown();
     
     return 0;
