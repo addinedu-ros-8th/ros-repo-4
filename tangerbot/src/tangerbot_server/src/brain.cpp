@@ -60,35 +60,35 @@ Brain::Brain() : Node("brain") {
     call_state_publisher_ = this->create_publisher<tangerbot_msgs::msg::CallState>("call_state", 10);
 
     //connect database
-    sql::mysql::MySQL_Driver* driver = sql::mysql::get_mysql_driver_instance();
-    std::unique_ptr<sql::Connection> con(driver->connect("tcp://127.0.0.1:3306", "root", "0119"));
-    con->setSchema("tgdb");
+    // sql::mysql::MySQL_Driver* driver = sql::mysql::get_mysql_driver_instance();
+    // std::unique_ptr<sql::Connection> con(driver->connect("tcp://127.0.0.1:3306", "root", "0119"));
+    // con->setSchema("tgdb");
 
-    std::unique_ptr<sql::PreparedStatement> pstmt(con->prepareStatement("SELECT sectionName, ST_AsText(coordinate) AS coordinate FROM Section"));
-    std::unique_ptr<sql::ResultSet> res(pstmt->executeQuery());
+    // std::unique_ptr<sql::PreparedStatement> pstmt(con->prepareStatement("SELECT sectionName, ST_AsText(coordinate) AS coordinate FROM Section"));
+    // std::unique_ptr<sql::ResultSet> res(pstmt->executeQuery());
 
-    for (int i = 0; i < res->rowsCount(); ++i) {
-        res->next();
-        std::string sectionName = res->getString("sectionName");
-        std::string point = res->getString("coordinate");
-        //printf("%s, %s", sectionName.c_str(), point.c_str());
-        auto goal_pose = geometry_msgs::msg::PoseStamped();
+    // for (int i = 0; i < res->rowsCount(); ++i) {
+    //     res->next();
+    //     std::string sectionName = res->getString("sectionName");
+    //     std::string point = res->getString("coordinate");
+    //     //printf("%s, %s", sectionName.c_str(), point.c_str());
+    //     auto goal_pose = geometry_msgs::msg::PoseStamped();
 
-        double x,y;
-        sscanf(point.c_str(), "POINT(%lf %lf)", &x, &y);
-        printf("%s", point.c_str());
-        printf("x: %lf Y: %lf", x, y);
-        goal_pose.pose.position.x = x;
-        goal_pose.pose.position.y = y;
-        goal_pose.pose.position.z = 0.0;
+    //     double x,y;
+    //     sscanf(point.c_str(), "POINT(%lf %lf)", &x, &y);
+    //     printf("%s", point.c_str());
+    //     printf("x: %lf Y: %lf", x, y);
+    //     goal_pose.pose.position.x = x;
+    //     goal_pose.pose.position.y = y;
+    //     goal_pose.pose.position.z = 0.0;
 
-        goal_pose.pose.orientation.x = 0.0;
-        goal_pose.pose.orientation.y = 0.0;
-        goal_pose.pose.orientation.z = 0.0;
-        goal_pose.pose.orientation.w = 1.0;
+    //     goal_pose.pose.orientation.x = 0.0;
+    //     goal_pose.pose.orientation.y = 0.0;
+    //     goal_pose.pose.orientation.z = 0.0;
+    //     goal_pose.pose.orientation.w = 1.0;
 
-        section_poses_[sectionName] = goal_pose;
-    }
+    //     section_poses_[sectionName] = goal_pose;
+    // }
     tangerbot_msgs::msg::RobotState robot_state;
     robot_state.robot_id = "robot1";
     robot_state.main_status = 0;
