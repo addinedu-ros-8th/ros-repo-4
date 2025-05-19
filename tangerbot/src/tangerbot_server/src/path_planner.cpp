@@ -142,17 +142,10 @@ pair<vector<pair<double, double>>, float> PathPlanner::astar(const cv::Mat& bina
 
     auto hash = [w](Point p) { return p.second * w + p.first; };
 
-    // auto heuristic = [&](Point pos) {
-    //     float goal_dist = hypot(pos.first - goal.first, pos.second - goal.second);
-    //     float obstacle_dist = dist_map.at<float>(pos.second, pos.first);
-    //     return goal_dist - k * obstacle_dist;
-    // };
-
     auto heuristic = [&](Point pos) {
         float goal_dist = hypot(pos.first - goal.first, pos.second - goal.second);
         float obstacle_dist = dist_map.at<float>(pos.second, pos.first);
-        float safe_weight = (obstacle_dist < 5.0f) ? 10000.0f : (5.0f / obstacle_dist);
-        return goal_dist + k * safe_weight;
+        return goal_dist - k * obstacle_dist;
     };
 
     priority_queue<Score, vector<Score>, greater<Score>> open_set;
@@ -301,10 +294,10 @@ void PathPlanner::execute(const std::shared_ptr<GoalHandlePathPlanning> goal_han
     goal_pose.first = static_cast<int>(goal->goal.pose.position.x * 100) + map_pose.first;
     goal_pose.second = static_cast<int>(goal->goal.pose.position.y * 100) + map_pose.second;
 
-    auto [path, distance] = this->astar(costmap, dist, start, goal_pose, 100.0);
+    auto [path, distance] = this->astar(costmap, dist, start, goal_pose, 10.0);
     if (path.empty()) {
         RCLCPP_INFO(this->get_logger(), "Path planning with original map");
-        auto [path, distance] = this->astar(map, dist, start, goal_pose, 100.0);
+        std::tie(path, distance) = this->astar(map, dist, start, goal_pose, 10.0);
     }
    
     if (path.empty()) {
