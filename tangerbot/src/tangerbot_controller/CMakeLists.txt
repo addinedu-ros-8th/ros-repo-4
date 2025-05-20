@@ -8,6 +8,7 @@ endif()
 # find dependencies
 find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
+find_package(rclcpp_action REQUIRED)
 find_package(tangerbot_msgs REQUIRED)
 find_package(rcl_interfaces REQUIRED)
 
@@ -16,6 +17,7 @@ ament_target_dependencies(tangerbot_manager
   rclcpp
   tangerbot_msgs
   rcl_interfaces
+  rclcpp_action
 )
 target_include_directories(tangerbot_manager PUBLIC
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>

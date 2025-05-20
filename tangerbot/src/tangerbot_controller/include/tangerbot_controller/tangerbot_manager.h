@@ -2,10 +2,15 @@
 #define TANGERBOT_MANAGER_H
 
 #include "rclcpp/rclcpp.hpp"
+#include "rclcpp_action/rclcpp_action.hpp"
 #include "tangerbot_msgs/msg/robot_state.hpp"
 #include "tangerbot_msgs/msg/robot_pose.hpp"
 #include "tangerbot_msgs/srv/set_state.hpp"
+#include "tangerbot_msgs/msg/detected_marker.hpp"
+#include "tangerbot_msgs/action/parking.hpp"
 #include "geometry_msgs/msg/pose_stamped.hpp"
+#include "geometry_msgs/msg/point.hpp"
+#include "geometry_msgs/msg/twist.hpp"
 #include <string>
 #include <memory>
 #include <fstream>
@@ -19,6 +24,9 @@
 
 using namespace std;
 
+using Parking = tangerbot_msgs::action::Parking;
+using GoalHandlerParking = rclcpp_action::ServerGoalHandle<Parking>;
+
 class TangerbotManager : public rclcpp::Node {
 private:
     string robot_id;
@@ -30,12 +38,20 @@ private:
     rclcpp::Subscription<tangerbot_msgs::msg::RobotPose>::SharedPtr person_pose_subscriber;
     rclcpp::Service<tangerbot_msgs::srv::SetState>::SharedPtr set_state_server;
     rclcpp::TimerBase::SharedPtr timer_;
+    rclcpp_action::Server<Parking>::SharedPtr parking_server;
 
     void set_state(const std::shared_ptr<tangerbot_msgs::srv::SetState::Request> request,
     std::shared_ptr<tangerbot_msgs::srv::SetState::Response> response);
     void person_pose_callbacks(const tangerbot_msgs::msg::RobotPose::SharedPtr msg);
     void state_callbacks();
     void update_battery();
+    rclcpp_action::GoalResponse parking_handle_goal(
+        const rclcpp_action::GoalUUID &uuid,
+        std::shared_ptr<const Parking::Goal> goal
+    );
+    rclcpp_action::CancelResponse parking_handle_cancel(const std::shared_ptr<GoalHandlerParking> goal_handle);
+    void parking_handle_accepted(const std::shared_ptr<GoalHandlerParking> goal_handle);
+    void parking_execute(const std::shared_ptr<GoalHandlerParking> goal_handle);
 public:
     TangerbotManager();
 };

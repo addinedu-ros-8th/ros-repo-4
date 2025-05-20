@@ -4,6 +4,9 @@
 #include "rcl_interfaces/msg/parameter_descriptor.hpp"
 using namespace std::chrono_literals;
 using namespace std;
+using namespace std::placeholders;
+using Parking = tangerbot_msgs::action::Parking;
+using GoalHandlerParking = rclcpp_action::ServerGoalHandle<Parking>;
 
 /************************************************
  * * CONSTRUCTOR 
@@ -24,7 +27,15 @@ TangerbotManager::TangerbotManager() : Node("tangerbot_manager")
     // subscriber
     person_pose_subscriber = this->create_subscription<tangerbot_msgs::msg::RobotPose>(
         "person_pose", 10, std::bind(&TangerbotManager::person_pose_callbacks, this, std::placeholders::_1));
-
+    
+    // action
+    parking_server = rclcpp_action::create_server<Parking>(
+        this,
+        "parking",
+        std::bind(&TangerbotManager::parking_handle_goal, this, _1, _2),
+        std::bind(&TangerbotManager::parking_handle_cancel, this, _1),
+        std::bind(&TangerbotManager::parking_handle_accepted, this, _1)
+    );
 
     // parameters
     auto param_desc = rcl_interfaces::msg::ParameterDescriptor{};
@@ -157,6 +168,35 @@ int Battery::read_adc_value() {
     int16_t raw = (data[0] << 8) | data[1];
 
     return raw;
+}
+
+/*************************************************
+ * Parking Action Server
+ *************************************************/
+rclcpp_action::GoalResponse TangerbotManager::parking_handle_goal(
+        const rclcpp_action::GoalUUID &uuid,
+        std::shared_ptr<const Parking::Goal> goal
+)
+{
+    RCLCPP_INFO(this->get_logger(), "Received goal request with marker id: %d", goal->marker_id);
+    (void)uuid;
+    return rclcpp_action::GoalResponse::ACCEPT_AND_EXECUTE;
+}
+
+rclcpp_action::CancelResponse TangerbotManager::parking_handle_cancel(
+const std::shared_ptr<GoalHandlerParking> goal_handle)
+{
+    RCLCPP_INFO(this->get_logger(), "Received request to cancel goal");
+    (void)goal_handle;
+    return rclcpp_action::CancelResponse::ACCEPT;
+}
+
+void TangerbotManager::parking_handle_accepted(const std::shared_ptr<GoalHandlerParking> goal_handle) {
+    std::thread{std::bind(&TangerbotManager::parking_execute, this, _1), goal_handle}.detach();
+}
+
+void TangerbotManager::parking_execute(const std::shared_ptr<GoalHandlerParking> goal_handle) {
+
 }
 
 int main(int argc , char **argv) {
