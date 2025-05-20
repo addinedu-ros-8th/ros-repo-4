@@ -1,0 +1,3 @@
+string robot_id
+int8 marker_id
+geometry_msgs/Point relative_point

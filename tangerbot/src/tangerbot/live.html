@@ -1,0 +1,11 @@
+<html>
+  <body>
+    <img id="stream" src="stream.jpg" width="640" height="480">
+    <script>
+      setInterval(() => {
+        const img = document.getElementById("stream");
+        img.src = "stream.jpg?t=" + new Date().getTime(); // 캐시 무효화
+      }, 100); // 0.1초마다 갱신
+    </script>
+  </body>
+</html>
