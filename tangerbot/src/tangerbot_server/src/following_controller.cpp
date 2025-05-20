@@ -24,7 +24,6 @@ public:
         
         return output;
     }
-
 private:
     double Kp_, Ki_, Kd_;
     double prev_error_;
@@ -41,13 +40,19 @@ public:
         declare_parameter<double>("k_a", 2.0);
         declare_parameter<double>("k_i_a", 0.1);
         declare_parameter<double>("k_d_a", 0.3);
-        declare_parameter<double>("max_linear", 0.3);
-        declare_parameter<double>("max_angular", 2.0);
+
+        // declare_parameter<double>("max_linear", 0.3);
+        // declare_parameter<double>("max_angular", 2.0);
+        declare_parameter<double>("max_linear", 1.0);
+        declare_parameter<double>("max_angular", 3.0);
+
         declare_parameter<double>("min_depth", 0.2);
         declare_parameter<double>("fu", 467.16504728177745);
         declare_parameter<double>("u0", 313.29207046554541);
-        declare_parameter<double>("tolerance_x", 3.0);
+        declare_parameter<double>("tolerance_x", 2.5);
+        declare_parameter<double>("depth_tolerance", 0.05);
 
+        get_parameter("depth_tolerance", depth_tolerance_);
         get_parameter("target_depth", target_depth_);
         get_parameter("k_p", k_p_);
         get_parameter("k_i", k_i_);
@@ -73,11 +78,13 @@ public:
         object_sub_ = create_subscription<geometry_msgs::msg::PointStamped>("transformed_point", 10, std::bind(&VelocityController::object_callback, this, std::placeholders::_1));
         cmd_vel_pub_ = create_publisher<geometry_msgs::msg::Twist>("cmd_vel", 10);
 
-        timer_ = create_wall_timer(50ms, std::bind(&VelocityController::check_timeout, this));
+        timer_ = create_wall_timer(200ms, std::bind(&VelocityController::check_timeout, this));
 
         last_msg_time_ = this->now();
         last_linear_x_ = 0.0;
         last_angular_z_ = 0.0;
+
+        RCLCPP_INFO(this->get_logger(), "Target depth set to: %.2f meters", target_depth_);
     }
 
 private:
@@ -121,8 +128,16 @@ private:
             return;
         }
 
-        // PID 제어 - 선속도
+        // 타겟 거리 허용 오차 내에 있으면 정지
         double error_z = z_avg - target_depth_;
+        if (std::abs(error_z) < depth_tolerance_) {
+            RCLCPP_INFO(this->get_logger(), "Reached target depth (z_avg=%.2f, target=%.2f), stopping", z_avg, target_depth_);
+            publish_cmd_vel(0.0, 0.0);
+            pid_z_->compute(0.0, dt_); // 적분 항 리셋
+            return;
+        }
+
+        // PID 제어 - 선속도
         double linear_x = pid_z_->compute(error_z, dt_);
 
         // PID 제어 - 각속도
@@ -156,7 +171,7 @@ private:
         
         auto now = this->now();
         auto elapsed = (now - last_msg_time_).seconds();
-        if (elapsed > 0.05) {
+        if (elapsed > 0.2) {
             RCLCPP_WARN(this->get_logger(), "No valid data for %.2f seconds, stopping", elapsed);
             last_linear_x_ *= 0.8;
             last_angular_z_ *= 0.8;
@@ -195,6 +210,7 @@ private:
     double fu_, u0_;
     double tolerance_x_;
     double dt_ = 0.033;
+    double depth_tolerance_;
 
     std::deque<double> z_history_;
     static constexpr size_t z_history_size_ = 10;
