@@ -13,7 +13,10 @@ find_package(tangerbot_msgs REQUIRED)
 find_package(rcl_interfaces REQUIRED)
 find_package(OpenCV REQUIRED)
 
-add_executable(tangerbot_manager src/tangerbot_manager.cpp)
+add_executable(tangerbot_manager 
+  src/tangerbot_manager.cpp
+  src/pid.cpp
+)
 ament_target_dependencies(tangerbot_manager
   rclcpp
   tangerbot_msgs

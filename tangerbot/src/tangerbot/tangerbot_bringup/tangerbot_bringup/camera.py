@@ -6,7 +6,7 @@ import os
 import cv2
 from picamera2 import Picamera2
 from ament_index_python.packages import get_package_share_directory
-from pinky_bringup.utils import ARUCO_DICT
+from tangerbot_bringup.utils import ARUCO_DICT
 import tf2_ros
 from tf2_ros import TransformBroadcaster
 from geometry_msgs.msg import TransformStamped, Vector3, Transform, Point
@@ -48,7 +48,7 @@ class CameraPublisher(Node):
         if ARUCO_DICT.get("DICT_4X4_100", None) is None:
             print(f"[ERROR] Unsupported ArUCo type: DICT_4X4_100")
             sys.exit(1)
-        pkg_path = get_package_share_directory('pinky_bringup')
+        pkg_path = get_package_share_directory('tangerbot_bringup')
         aruco_dict_type = ARUCO_DICT["DICT_4X4_100"]
         k_path = os.path.join(pkg_path, 'config', "calibration_matrix.npy")
         self.k = np.load(k_path)
@@ -126,9 +126,13 @@ class CameraPublisher(Node):
         
         gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
         corners, ids, _ = self.detector.detectMarkers(gray)
-        
+        detected_marker = DetectedMarker()
+        detected_marker.robot_id = "robot1"
+        relative_point = []
+        marker_id = []
         if ids is not None and len(corners) > 0:
             ids = [ids[i][0] for i in range(len(ids))]
+            
             for i in range(len(ids)):
                 rvec, tvec, _ = cv2.aruco.estimatePoseSingleMarkers(
                     corners[i], self.marker_length, self.k, self.d
@@ -161,7 +165,7 @@ class CameraPublisher(Node):
                 
                 odom_to_map = self.lookup_transform("map", "odom")
                 
-                self.get_logger().error(f"rvec: {rvec}, tvec: {tvec}")
+                self.get_logger().info(f"Marker: {ids[i]} rvec: {rvec}, tvec: {tvec}")
                 
                 try:
                     matrix_o_to_m = self.transform_to_matrix(odom_to_map)
@@ -217,14 +221,13 @@ class CameraPublisher(Node):
                 cv2.drawFrameAxes(frame, self.k, self.d, rvec, tvec, self.marker_length * 0.5)
                 
                 ##### Publish Detected Marker ID #####
-                
-                detected_marker = DetectedMarker()
-                relative_point = Point(x=float(tvec[0]), y=float(tvec[1]), z=float(tvec[2]))
-                detected_marker.robot_id = "robot1"
-                detected_marker.marker_id = int(ids[i])
-                detected_marker.relative_point = relative_point
-                self.detected_marker_pub.publish(detected_marker)
-        cv2.imwrite('/home/pinky/pinky_violet/stream.jpg', frame)
+
+                relative_point.append(Point(x=float(tvec[0]), y=float(tvec[1]), z=float(tvec[2])))
+                marker_id.append(int(ids[i]))
+        detected_marker.relative_point = relative_point
+        detected_marker.marker_id = marker_id
+        self.detected_marker_pub.publish(detected_marker)
+        cv2.imwrite('/home/pinky/ros-repo-4/tangerbot/src/tangerbot/stream.jpg', frame)
         
     def lookup_transform(self, target_frame, source_frame):
         try:
