@@ -21,6 +21,7 @@ class GestureInterpreterNode(Node):
 
     def gesture_callback(self, msg: Gesture):
         robot_id = msg.robot_id
+        user_id = msg.user_id
         point: Point = msg.point
         gesture_type = self.interpret_gesture(point)
         if gesture_type is None:
@@ -30,7 +31,7 @@ class GestureInterpreterNode(Node):
         # 서비스 요청 메시지 구성
         request = HandleCommand.Request()
         request.robot_id = robot_id
-        request.user_id = self.user_id
+        request.user_id = user_id
         request.type = gesture_type
         request.data = 0  # 현재는 필요 없음
 

@@ -2,15 +2,6 @@
 
 #include <yaml-cpp/yaml.h>
 
-//sql
-// #include <mysql_driver.h>
-// #include <mysql_connection.h>
-// #include <cppconn/driver.h>
-// #include <cppconn/statement.h>
-// #include <cppconn/prepared_statement.h>
-// #include <cppconn/resultset.h>
-
-
 #include <iostream>
 #include <thread>
 #include <cstring>
@@ -48,7 +39,6 @@ Brain::Brain() : Node("brain") {
     tserver_set_follow_mode_client_ = this->create_client<SetFollowMode>("/tserver/set_follow_mode");
     set_human_pose_mode_client_ = this->create_client<SetFollowMode>("/set_human_pose_follow_mode");
     set_state_client_ = this->create_client<SetState>("set_state");
-    redirect_client_ = this->create_client<Redirect>("redirect");
 
 
     //Action Client
@@ -63,9 +53,9 @@ Brain::Brain() : Node("brain") {
         "/obstacle_bool", 10,
         std::bind(&Brain::obstacle_callback, this, std::placeholders::_1)
     );
-    gesture_subscriber_ = this->create_subscription<Gesture>(
-        "gesture", 10, std::bind(&Brain::gesture_callback, this, _1)
-    );
+    // gesture_subscriber_ = this->create_subscription<Gesture>(
+    //     "gesture", 10, std::bind(&Brain::gesture_callback, this, _1)
+    // );
 
     //publisher
     cmd_vel_publisher_ = this->create_publisher<geometry_msgs::msg::Twist>("cmd_vel", 10);
@@ -170,42 +160,6 @@ void Brain::robot_state_callback(const RobotState::SharedPtr msg)
 
 
 
-void Brain::gesture_callback(const tangerbot_msgs::msg::Gesture::SharedPtr msg)
-{   
-    std::string robot_id = msg->robot_id;
-
-    // if (robot_states_data_[robot_id].main_status != tangerbot_msgs::msg::RobotState::WORKING
-    //      && robot_states_data_[robot_id].motion_status != tangerbot_msgs::msg::RobotState::FOLLOWING) {
-    //     RCLCPP_ERROR(this->get_logger(), "Robot %s is not working and following mode.", robot_id.c_str());
-    //     return;
-    // }
-    
-    RCLCPP_INFO(this->get_logger(), "Gesture Detecting is started");
-    
-    uint8_t gesture = msg->gesture;
-
-    switch (gesture){
-        case tangerbot_msgs::msg::Gesture::COME:
-            RCLCPP_INFO(this->get_logger(), "Gesture COME");
-            break;
-
-        case tangerbot_msgs::msg::Gesture::STOP:
-            RCLCPP_INFO(this->get_logger(), "Gesture STOP");
-            break;
-
-        case tangerbot_msgs::msg::Gesture::BACK:
-            RCLCPP_INFO(this->get_logger(), "Gesture BACK");
-            break;  
-        
-        default:
-            RCLCPP_INFO(this->get_logger(), "Unknown Gesture");
-            break;
-    }
-}
-
-
-
-
 void Brain::obstacle_callback(const std_msgs::msg::Bool::SharedPtr msg)
 {
     if (msg->data) {
@@ -278,8 +232,8 @@ std::shared_ptr<tangerbot_msgs::action::PathPlanning::Result> Brain::request_pat
     }
 
     auto future_result = path_planning_client_->async_get_result(goal_handle);
-    
     RCLCPP_INFO(this->get_logger(), " Complete Path !");
+
     return future_result.get().result;
 }
 
@@ -340,16 +294,15 @@ bool Brain::set_robot_state(const std::string& robot_id, int main_status, int mo
 
     while (!set_state_client_->wait_for_service(std::chrono::seconds(1))) {
         if (!rclcpp::ok()) {
-            RCLCPP_ERROR(this->get_logger(), "Interrupted while waiting for the service.");
+            RCLCPP_ERROR(this->get_logger(), "Interrupted while waiting for the set state service.");
             return false;
         }
         RCLCPP_INFO(this->get_logger(), "Waiting for set robot state service to become available...");
     }
 
     // Send request and get future response
-    auto future = set_state_client_->async_send_request(request);
-
     // Handle response (blocking call until response is received)
+    auto future = set_state_client_->async_send_request(request);
     if (rclcpp::spin_until_future_complete(this->get_node_base_interface(), future) == rclcpp::FutureReturnCode::SUCCESS) {
         auto response = future.get();
         return response->success;
@@ -366,27 +319,75 @@ bool Brain::set_robot_state(const std::string& robot_id, int main_status, int mo
 
 
 
-void Brain::move_to_section(const geometry_msgs::msg::PoseStamped& goal_pose)
+void Brain::move_to_section(const std::shared_ptr<tangerbot_msgs::srv::HandleCommand::Request> request)
 {
-    
-    std::string selected_robot_id = select_optimal_robot(goal_pose);
 
+    section_ = request->data;
+    //geometry_msgs::msg::PoseStamped goal_pose = section_poses_[section];
 
-    if (selected_robot_id.empty()){
-        RCLCPP_ERROR(this->get_logger(), "No Available Robot to Assign.");
-        return;
+    /* STORAGE */
+    if (section_.rfind("storage", 0) == 0){
+        RCLCPP_INFO(this->get_logger(), "Storage Section");
+        selected_robot_id_ = request->robot_id;
+        goal_pose_ = section_poses_[section_];
+        auto result = request_path_planning_action(selected_robot_id_, goal_pose_);
+        selected_robot_path_ = result->path;
+        workload_ = request_workload(selected_robot_id_);
+
+        /* Battery is LOW */
+        if (robot_states_data_[selected_robot_id_].battery < 20.0){
+            set_robot_state(selected_robot_id_, 1, 2); //DEACTIVATE, MOVING
+            RCLCPP_INFO(this->get_logger(), "Battery is low, Deactivating Robot %s", selected_robot_id_.c_str());
+        }
+        /* Battery is HIGH */
+        else {
+            if (workload_ < 0.5){ //NON-MAX
+                set_robot_state(selected_robot_id_, 0, 1); //IDLE, MOVING
+            } else { //MAX
+                set_robot_state(selected_robot_id_, 1, 1); //WORKING, MOVING
+            }
+        }
+    }
+
+    /* HOME */
+    if (section_.rfind("home", 0) == 0){
+        RCLCPP_INFO(this->get_logger(), "Home Section");
+        selected_robot_id_ = request->robot_id;
+        goal_pose_ = section_poses_[section_];
+        auto result = request_path_planning_action(selected_robot_id_, goal_pose_);
+        selected_robot_path_ = result->path;
+        workload_ = request_workload(selected_robot_id_);
+        
+        /* Battery is LOW */
+        if (robot_states_data_[selected_robot_id_].battery < 20.0){
+            set_robot_state(selected_robot_id_, 1, 2); //DEACTIVATE, MOVING
+            RCLCPP_INFO(this->get_logger(), "Battery is low, Deactivating Robot %s", selected_robot_id_.c_str());
+        }
+        /* Battery is HIGH */
+        else {
+            set_robot_state(selected_robot_id_, 0, 1); //IDLE, MOVING
+        }
+    }
+
+    /* WORKSECTION */
+    if (section_.rfind("section", 0) == 0){
+        goal_pose_ = section_poses_[request->data];
+        user_id_ = request->user_id;
+        selected_robot_id_ = select_optimal_robot(goal_pose_);
+
+        if (selected_robot_id_.empty()){
+            RCLCPP_WARN(this->get_logger(), "No Available Robot to Assign.");
+            return;
+        }
+        set_robot_state(selected_robot_id_, 1, 0); //WORKING, MOVING
     }
 
 
-    // if (!set_robot_state(selected_robot_id, 1, 0)){
-    //     RCLCPP_WARN(this->get_logger(), "Failed to update robot state");
-    // } 
-
-    while(rclcpp::ok() ){
+    // tangerbot navigating to goal point
+    while(rclcpp::ok() && selected_robot_id_ != "") {
         rclcpp::Rate loop_rate(10);
         if (!follow_path_client_->wait_for_action_server(std::chrono::seconds(10))){
             RCLCPP_ERROR(this->get_logger(), "Follow Path Action Server not availaable");
-            //set_robot_state(selected_robot_id, 1, 2); //Working, Stop
             return;
         }
 
@@ -395,22 +396,51 @@ void Brain::move_to_section(const geometry_msgs::msg::PoseStamped& goal_pose)
         
 
         auto send_goal_options = rclcpp_action::Client<nav2_msgs::action::FollowPath>::SendGoalOptions(); 
-        send_goal_options.result_callback = [this, selected_robot_id, goal_msg, send_goal_options](const auto& result){
-            if (result.code==rclcpp_action::ResultCode::SUCCEEDED){
+        send_goal_options.result_callback = [this, goal_msg, send_goal_options](const auto& result){
+            if (result.code==rclcpp_action::ResultCode::SUCCEEDED)
+            {
                 tangerbot_msgs::msg::CallState msg;
-                msg.robot_id = selected_robot_id;
-                msg.success=true;
-                msg.done = true;
-                msg.time_remaining = 0.0;
-                call_state_publisher_->publish(msg);
+                if (section_.rfind('section', 0) == 0){
+                    msg.robot_id = this->selected_robot_id_;
+                    msg.user_id = user_id_;
+                    msg.success=true;
+                    msg.done = true;
+                    msg.time_remaining = 0.0;
+                    call_state_publisher_->publish(msg);
+                }
+                
+                RCLCPP_INFO(this->get_logger(), "Robot %s reached the %s.", this->selected_robot_id_.c_str(), section_.c_str());
 
-                RCLCPP_INFO(this->get_logger(), "Robot %s reached the goal.", selected_robot_id.c_str());
-            } else {
-                RCLCPP_INFO(this->get_logger(), "Robot %s failed to reach the goal.", selected_robot_id.c_str());
+                // After reaching the goal
+                if (section_.rfind("storage", 0) == 0) 
+                {   
+                    while (workload_ <= 0.0){
+                        set_robot_state(selected_robot_id_, 1, 3); //WORKING, LOADING
+                        workload_ -= 0.05;
+                    }
+                    set_robot_state(this->selected_robot_id_, 0, 2); //IDLE, MOVING
+                
+                } 
+                else if (section_.rfind("home", 0) == 0)
+                {
+                    if (robot_states_data_[this->selected_robot_id_].battery < 20.0){
+                        set_robot_state(this->selected_robot_id_, 2, 2); //DEACTIVATE, STOP
+                    } else {
+                        set_robot_state(this->selected_robot_id_, 0, 2); //IDLE, STOP
+                    }
+                } 
+                else 
+                {
+                    set_robot_state(this->selected_robot_id_, 1, 2); //WORKING, STOP
+                }
+            } 
+            else 
+            {
+                RCLCPP_INFO(this->get_logger(), "Robot %s failed to reach the %s.", this->selected_robot_id_.c_str(), section_.c_str());
             }
         };
 
-        send_goal_options.feedback_callback = [this, selected_robot_id](auto /*goal_handle*/, const std::shared_ptr<const nav2_msgs::action::FollowPath::Feedback> feedback) {
+        send_goal_options.feedback_callback = [this](auto, const std::shared_ptr<const nav2_msgs::action::FollowPath::Feedback> feedback) {
             if (feedback) {
                 current_distance_remaining_ = feedback->distance_to_goal;
                 float current_speed = feedback->speed;
@@ -418,14 +448,17 @@ void Brain::move_to_section(const geometry_msgs::msg::PoseStamped& goal_pose)
                 if (time_remaining < 0) return;
 
                 tangerbot_msgs::msg::CallState msg;
-                msg.robot_id = selected_robot_id;
-                msg.success = true;
-                msg.done = false;
-                msg.time_remaining = time_remaining;
-                call_state_publisher_->publish(msg);
-        
-                RCLCPP_INFO(this->get_logger(), "Robot %s remaining distance: %.2f m, ETA: %.2f s", 
-                            selected_robot_id.c_str(), current_distance_remaining_, time_remaining);
+                if (section_.rfind('section', 0) == 0){
+                    msg.robot_id = this->selected_robot_id_;
+                    msg.user_id = user_id_;
+                    msg.success = true;
+                    msg.done = false;
+                    msg.time_remaining = time_remaining;
+                    call_state_publisher_->publish(msg);
+
+                    RCLCPP_INFO(this->get_logger(), "Robot %s remaining distance: %.2f m, ETA: %.2f s", 
+                            this->selected_robot_id_.c_str(), current_distance_remaining_, time_remaining);
+                }            
             }
         };
 
@@ -436,7 +469,7 @@ void Brain::move_to_section(const geometry_msgs::msg::PoseStamped& goal_pose)
             return;
         }
 
-        RCLCPP_INFO(this->get_logger(), "Sent follow path goal");
+        RCLCPP_INFO(this->get_logger(), "Sent follow path %s", section_.c_str());
 
 
         while (rclcpp::ok()) {     
@@ -460,7 +493,7 @@ void Brain::move_to_section(const geometry_msgs::msg::PoseStamped& goal_pose)
                     cmd_vel.angular.z = 0.0;
                     cmd_vel_publisher_->publish(cmd_vel);
     
-                    auto result = request_path_planning_action(selected_robot_id, goal_pose);
+                    auto result = request_path_planning_action(selected_robot_id_, goal_pose_);
     
                     goal_msg.path = result->path;
             
@@ -486,18 +519,24 @@ void Brain::handle_command_service_callback(
     const std::shared_ptr<tangerbot_msgs::srv::HandleCommand::Request> request,
     std::shared_ptr<tangerbot_msgs::srv::HandleCommand::Response> response) 
 {
+    RCLCPP_INFO(this->get_logger(), "Handle Command Request Received. Received Data.");
+    RCLCPP_INFO(this->get_logger(), "  Type: %u", request->type);
+    RCLCPP_INFO(this->get_logger(), "  Data: %s", request->data.c_str());
+    RCLCPP_INFO(this->get_logger(), "  Robot ID: %s", request->robot_id.c_str());
+    RCLCPP_INFO(this->get_logger(), "  User ID: %s", request->user_id.c_str());
+
+
     uint8_t command = request->type;
     geometry_msgs::msg::PoseStamped goal_pose;
-
-    //get the section pose
     goal_pose = section_poses_[request->data];
     
 
     if (command == request->MOVETOSECTION){
-        std::thread(&Brain::move_to_section, this, goal_pose).detach();
+        //std::thread(&Brain::move_to_section, this, request->data, std::ref(goal_pose)).detach();
+        std::thread(&Brain::move_to_section, this, request).detach();
     }
     
-    if (command == request->FOLLOWING) {
+    if (command == request->FOLLOWING && robot_states_data_[request->robot_id].main_status == tangerbot_msgs::msg::RobotState::WORKING) {
         std::string robot_id = request->robot_id;
 
 
@@ -535,11 +574,16 @@ void Brain::handle_command_service_callback(
         RCLCPP_INFO(this->get_logger(), "Following mode activated for robot: %s", robot_id.c_str());
         response->success = true;
 
-
-        // 4. Gesture On
-        
-        return;
     }
+
+    if (command == request->STOP){
+        RCLCPP_INFO(this->get_logger(), "Stopping Robot %s", request->robot_id.c_str());
+        auto cmd_vel = geometry_msgs::msg::Twist();
+        cmd_vel.linear.x = 0.0;
+        cmd_vel.angular.z = 0.0;
+        cmd_vel_publisher_->publish(cmd_vel);
+    }
+
 
     response->success = true;
 }
