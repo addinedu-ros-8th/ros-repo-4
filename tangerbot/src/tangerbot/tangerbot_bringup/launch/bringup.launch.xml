@@ -1,0 +1,26 @@
+<?xml version='1.0' ?>
+
+<launch>
+    <arg name="use_sim_time" default="False"/>
+    <arg name="motor_ratio" default="1.0"/>
+
+    <include file="$(find-pkg-share pinky_description)/launch/upload.launch.xml">
+        <arg name="use_sim_time" value="$(var use_sim_time)"/>
+    </include>
+
+    <include file="$(find-pkg-share sllidar_ros2)/launch/sllidar_c1_launch.py">
+    </include>
+
+    <!-- <include file="$(find-pkg-share ros2_icm20948)/icm20948_node_launch.py">
+    </include> -->
+
+    <node pkg="pinky_bringup" exec="pinky_bringup">
+        <param name="motor_ratio" value="$(var motor_ratio)"/>
+    </node>
+
+    <node pkg="pinky_bringup" exec="camera">
+    </node>
+    <node pkg="pinky_bringup" exec="pinky_battery_publiser">
+    </node>
+    
+</launch>
