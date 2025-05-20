@@ -46,6 +46,7 @@ private:
     cv::Mat costmap;
     cv::Mat map;
     geometry_msgs::msg::PoseStamped tracked_pose;
+    geometry_msgs::msg::PoseStamped goal_pose;
 
     // Functions
     void costmap_callback(const OccupancyGrid::SharedPtr msg);

@@ -9,6 +9,7 @@
 //action
 #include "tangerbot_msgs/action/path_planning.hpp"
 #include "nav2_msgs/action/follow_path.hpp"
+#include "tangerbot_msgs/action/parking.hpp"
 
 //service
 #include "tangerbot_msgs/srv/handle_command.hpp"
@@ -40,12 +41,18 @@
 #include <unordered_map>
 #include <string>
 
+
+struct Quaternion {
+    double w, x, y, z;
+};
+
 class Brain : public rclcpp::Node {    
 
 public:
     //action
     using PathPlanning = tangerbot_msgs::action::PathPlanning;
     using FollowPath = nav2_msgs::action::FollowPath;
+    using Parking = tangerbot_msgs::action::Parking;
 
     //service
     using HandleCommand = tangerbot_msgs::srv::HandleCommand;
@@ -75,6 +82,7 @@ private:
     rclcpp_action::Client<tangerbot_msgs::action::PathPlanning>::SharedPtr path_planning_client_;
     rclcpp_action::Client<FollowPath>::SharedPtr follow_path_client_;
     rclcpp_action::ClientGoalHandle<nav2_msgs::action::FollowPath>::SharedPtr goal_handle_;
+    rclcpp_action::Client<Parking>::SharedPtr parking_client_;
     rclcpp::Client<SetFollowMode>::SharedPtr vision_set_follow_mode_client_;
     rclcpp::Client<SetFollowMode>::SharedPtr tserver_set_follow_mode_client_;
     rclcpp::Client<SetFollowMode>::SharedPtr set_human_pose_mode_client_;
@@ -84,6 +92,7 @@ private:
     //rclcpp::Subscription<Gesture>::SharedPtr gesture_subscriber_;
     rclcpp::Publisher<geometry_msgs::msg::Twist>::SharedPtr cmd_vel_publisher_;
     rclcpp::Publisher<tangerbot_msgs::msg::CallState>::SharedPtr call_state_publisher_;
+    Quaternion yaw_deg_to_quaternion(int yaw_deg);
 
     //declare variable 
     std::unique_ptr<sql::Connection> db;

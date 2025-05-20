@@ -228,9 +228,17 @@ nav_msgs::msg::Path PathPlanner::add_orientation(const vector<pair<double, doubl
             dy = path[i+1].second - y;
             yaw = atan2(dy, dx);
         } else {
-            dx = x - path[i-1].first;
-            dy = y - path[i-1].second;
-            yaw = atan2(dy, dx);
+            auto pose_stamped = geometry_msgs::msg::PoseStamped();
+            pose_stamped.header.frame_id = frame_id;
+            pose_stamped.pose.position.x = x;
+            pose_stamped.pose.position.y = y;
+            pose_stamped.pose.position.z = 0.0;
+            pose_stamped.pose.orientation.x = goal_pose.pose.orientation.x;
+            pose_stamped.pose.orientation.y = goal_pose.pose.orientation.y;
+            pose_stamped.pose.orientation.z = goal_pose.pose.orientation.z;
+            pose_stamped.pose.orientation.w = goal_pose.pose.orientation.w;
+            path_with_orientation.poses.push_back(pose_stamped);
+            continue;
         }
         tf2::Quaternion q;
         q.setRPY(0, 0, yaw);
@@ -280,6 +288,7 @@ void PathPlanner::execute(const std::shared_ptr<GoalHandlePathPlanning> goal_han
     RCLCPP_INFO(this->get_logger(), "Executing goal");
     rclcpp::Rate loop_rate(1);
     const auto goal = goal_handle->get_goal();
+    goal_pose = goal->goal;
     auto feedback = std::make_shared<PathPlanning::Feedback>();
     auto result = std::make_shared<PathPlanning::Result>();
 

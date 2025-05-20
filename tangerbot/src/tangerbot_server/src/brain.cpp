@@ -7,6 +7,7 @@
 #include <cstring>
 #include <mutex>
 #include <chrono>
+#include <cmath>
 
 using namespace std::placeholders;
 
@@ -44,6 +45,7 @@ Brain::Brain() : Node("brain") {
     //Action Client
     path_planning_client_ = rclcpp_action::create_client<tangerbot_msgs::action::PathPlanning>(this, "path_planning");
     follow_path_client_ = rclcpp_action::create_client<nav2_msgs::action::FollowPath>(this, "follow_path");
+    parking_client_= rclcpp_action::create_client<tangerbot_msgs::action::Parking>(this, "parking");
 
     //Subscriber
     robot_states_ = this->create_subscription<RobotState>(
@@ -66,28 +68,33 @@ Brain::Brain() : Node("brain") {
     db = std::unique_ptr<sql::Connection> (db_driver_->connect("tcp://127.0.0.1:3306", "root", "0119"));
     db->setSchema("tgdb");
 
-    std::unique_ptr<sql::PreparedStatement> pstmt(db->prepareStatement("SELECT sectionName, ST_AsText(coordinate) AS coordinate FROM Section"));
+    std::unique_ptr<sql::PreparedStatement> pstmt(db->prepareStatement("SELECT sectionName, ST_AsText(coordinate) AS coordinate, yaw FROM Section"));
     std::unique_ptr<sql::ResultSet> res(pstmt->executeQuery());
 
     for (int i = 0; i < res->rowsCount(); ++i) {
         res->next();
         std::string sectionName = res->getString("sectionName");
         std::string point = res->getString("coordinate");
+        std::string yaw = res->getString("yaw");
         //printf("%s, %s", sectionName.c_str(), point.c_str());
         auto goal_pose = geometry_msgs::msg::PoseStamped();
 
         double x,y;
+        int yaw_int;
         sscanf(point.c_str(), "POINT(%lf %lf)", &x, &y);
+        sscanf(yaw.c_str(), "%d", &yaw_int);
         printf("%s", point.c_str());
         printf("x: %lf Y: %lf", x, y);
+        printf("yaw: %d", yaw_int);
         goal_pose.pose.position.x = x;
         goal_pose.pose.position.y = y;
         goal_pose.pose.position.z = 0.0;
 
-        goal_pose.pose.orientation.x = 0.0;
-        goal_pose.pose.orientation.y = 0.0;
-        goal_pose.pose.orientation.z = 0.0;
-        goal_pose.pose.orientation.w = 1.0;
+        auto q = yaw_deg_to_quaternion(yaw_int);
+        goal_pose.pose.orientation.x = q.x;
+        goal_pose.pose.orientation.y = q.y;
+        goal_pose.pose.orientation.z = q.z;
+        goal_pose.pose.orientation.w = q.w;
 
         section_poses_[sectionName] = goal_pose;
     }
@@ -258,12 +265,12 @@ std::string Brain::select_optimal_robot(const geometry_msgs::msg::PoseStamped& g
         
         float distance = result->distance;
 
-        //double battery_score = state.battery/100.0;
+        double battery_score = state.battery/100.0;
         double distance_score = 1.0/(1.0+distance);
-        //double workload_score = 1.0/(1.0+request_workload(robot_id));
+        double workload_score = 1.0/(1.0+request_workload(robot_id));
 
-        //double score = 0.5 * battery_score + 0.3 * distance_score + 0.2 * workload_score;
-        double score = distance;
+        double score = 0.5 * battery_score + 0.3 * distance_score + 0.2 * workload_score;
+        //double score = distance;
         if (score > best_score){
             best_score = score;
             selected_robot_id = robot_id;
@@ -324,7 +331,6 @@ void Brain::move_to_section(const std::shared_ptr<tangerbot_msgs::srv::HandleCom
 
     section_ = request->data;
     //geometry_msgs::msg::PoseStamped goal_pose = section_poses_[section];
-
     /* STORAGE */
     if (section_.rfind("storage", 0) == 0){
         RCLCPP_INFO(this->get_logger(), "Storage Section");
@@ -427,6 +433,27 @@ void Brain::move_to_section(const std::shared_ptr<tangerbot_msgs::srv::HandleCom
                         set_robot_state(this->selected_robot_id_, 2, 2); //DEACTIVATE, STOP
                     } else {
                         set_robot_state(this->selected_robot_id_, 0, 2); //IDLE, STOP
+                    }
+
+                    auto parking_goal = tangerbot_msgs::action::Parking::Goal();
+                    
+                    if (selected_robot_id_ == "robot1") 
+                        parking_goal.marker_id = 11;
+                    else if (selected_robot_id_ == "robot2") 
+                        parking_goal.marker_id = 12;
+                    else if (selected_robot_id_ == "robot3") 
+                        parking_goal.marker_id = 13;
+                    else {}
+
+                    auto parking_future_goal_handle = parking_client_->async_send_goal(parking_goal);
+                    auto parking_goal_handle = parking_future_goal_handle.get();
+
+                    if (parking_goal_handle) {
+                        RCLCPP_INFO(this->get_logger(), "Robot %s parked successfully.", this->selected_robot_id_.c_str());
+                        return;
+                    } else {
+                        RCLCPP_ERROR(this->get_logger(), "Failed to park robot %s.", this->selected_robot_id_.c_str());
+                        return;
                     }
                 } 
                 else 
@@ -531,7 +558,7 @@ void Brain::handle_command_service_callback(
     goal_pose = section_poses_[request->data];
     
 
-    if (command == request->MOVETOSECTION){
+    if (command == request->MOVETOSECTION || command == request->RETURN) {
         //std::thread(&Brain::move_to_section, this, request->data, std::ref(goal_pose)).detach();
         std::thread(&Brain::move_to_section, this, request).detach();
     }
@@ -585,10 +612,19 @@ void Brain::handle_command_service_callback(
     }
 
 
+
     response->success = true;
 }
 
-
+Quaternion Brain::yaw_deg_to_quaternion(int yaw_deg) {
+    double yaw_rad = yaw_deg * M_PI / 180.0;
+    Quaternion q;
+    q.w = cos(yaw_rad / 2.0);
+    q.x = 0.0;
+    q.y = 0.0;
+    q.z = sin(yaw_rad / 2.0);
+    return q;
+}
 
 
 
