@@ -1,16 +1,16 @@
 #!/usr/bin/env python3
 import rclpy
 from rclpy.node import Node
-from std_msgs.msg import String, ByteMultiArray
+from std_msgs.msg import String
+from tangerbot_msgs.msg import RawVoice  # RawVoice 메시지 임포트
+from pinky_interfaces.srv import Emotion
+
 import speech_recognition as sr
 import time
 import sounddevice as sd
 import numpy as np
 import io
 import wave
-from pinky_interfaces.srv import Emotion
-from tangerbot_msgs.srv import HandleRawVoice
-
 
 SAMPLE_RATE = 16000
 FRAME_SIZE = 1024
@@ -20,32 +20,25 @@ class WakeWordListener(Node):
     def __init__(self):
         super().__init__('wake_word_listener')
 
-        # 퍼블리셔
         self.wake_pub_ = self.create_publisher(String, '/wake_word', 10)
+        self.raw_voice_pub_ = self.create_publisher(RawVoice, '/raw_voice', 10)  # ✅ 퍼블리셔 추가
 
         # 감정 서비스 클라이언트
         self.emotion_cli = self.create_client(Emotion, 'set_emotion')
         while not self.emotion_cli.wait_for_service(timeout_sec=1.0):
             self.get_logger().info('⏳ 감정 서비스 기다리는 중...')
-            
-        self.voice_cli = self.create_client(HandleRawVoice, 'handle_raw_voice')
-        while not self.voice_cli.wait_for_service(timeout_sec=1.0):
-            self.get_logger().info('🎙 음성 처리 서비스 기다리는 중...')
 
-        # 음성 인식기 초기화
         self.recognizer = sr.Recognizer()
         self.mic = sr.Microphone(device_index=1)
         self.trigger_word = "핑키야"
-        self.listening = False  # 음성 녹음 중인지 확인용
+        self.listening = False
 
         self.get_logger().info("🔊 Wake word listener 시작됨. '핑키야'라고 말하세요.")
-
-        # 0.1초마다 listen_loop를 비동기로 실행
         self.timer = self.create_timer(0.1, self.listen_loop)
 
     def listen_loop(self):
         if self.listening:
-            return  # 현재 녹음 중이면 skip
+            return
 
         with self.mic as source:
             self.get_logger().info("👂 대기 중...")
@@ -59,28 +52,25 @@ class WakeWordListener(Node):
             if self.trigger_word == text:
                 self.listening = True
 
-                # 깨우기 메시지 퍼블리시
+                # wake word 퍼블리시
                 wake_msg = String()
                 wake_msg.data = self.trigger_word
                 self.wake_pub_.publish(wake_msg)
-                self.get_logger().info("✅ '핑키야' 감지됨. 사용자 음성 녹음 시작...")
 
-                # 감정 상태 변경 요청 (basic)
+                # 감정 상태 'basic' 요청
                 req = Emotion.Request()
                 req.emotion = "basic"
                 self.emotion_cli.call_async(req)
-                self.get_logger().info("📺 감정 상태 'basic' 요청 전송")
 
-                # 사용자 음성 녹음
+                # 음성 녹음
                 audio_np = self.record_until_silence()
                 if audio_np is not None:
-                    self.send_audio_stream(audio_np)
+                    self.publish_raw_voice(audio_np)
                 else:
                     self.get_logger().warn("⛔ 유효한 음성 없음")
                     req = Emotion.Request()
                     req.emotion = "sad"
                     self.emotion_cli.call_async(req)
-                    self.get_logger().info("📺 감정 상태 'sad' 요청 전송")
 
                 self.listening = False
 
@@ -89,14 +79,12 @@ class WakeWordListener(Node):
             req = Emotion.Request()
             req.emotion = "sad"
             self.emotion_cli.call_async(req)
-            self.get_logger().info("📺 감정 상태 'sad' 요청 전송")
 
         except sr.RequestError as e:
             self.get_logger().error(f"❌ STT 오류: {e}")
             req = Emotion.Request()
             req.emotion = "sad"
             self.emotion_cli.call_async(req)
-            self.get_logger().info("📺 감정 상태 'sad' 요청 전송")
 
     def record_until_silence(self):
         self.get_logger().info("🎤 말하세요! (2초 침묵 시 종료)")
@@ -142,8 +130,9 @@ class WakeWordListener(Node):
     def is_speech(self, audio_bytes):
         return np.max(np.frombuffer(audio_bytes, dtype=np.int16)) > 500
 
-    def send_audio_via_service(self, audio_np):
-        self.get_logger().info("📤 오디오 바이트 스트림 인코딩 중...")
+    def publish_raw_voice(self, audio_np):
+        self.get_logger().info("📤 오디오 데이터 WAV 인코딩 중...")
+
         buf = io.BytesIO()
         with wave.open(buf, 'wb') as wf:
             wf.setnchannels(1)
@@ -151,29 +140,17 @@ class WakeWordListener(Node):
             wf.setframerate(SAMPLE_RATE)
             wf.writeframes(audio_np.tobytes())
 
-        byte_data = np.frombuffer(buf.getvalue(), dtype=np.uint8)
+        wav_bytes = buf.getvalue()
+        wav_uint8_array = np.frombuffer(wav_bytes, dtype=np.uint8)
 
-        # 📨 서비스 요청 생성
-        req = HandleRawVoice.Request()
-        req.robot_id = "pinky"
-        req.user_id = "user123"
-        req.data = ByteMultiArray()
-        req.data.data = byte_data.tolist()
+        # ✅ RawVoice 메시지 생성 및 퍼블리시
+        msg = RawVoice()
+        msg.robot_id = "pinky"
+        msg.data = list(wav_uint8_array)
 
-        # 🛠 서비스 호출
-        future = self.voice_cli.call_async(req)
-
-        def response_callback(future):
-            try:
-                res = future.result()
-                if res.success:
-                    self.get_logger().info("✅ 음성 데이터 전송 성공")
-                else:
-                    self.get_logger().warn("⚠️ 음성 처리 실패")
-            except Exception as e:
-                self.get_logger().error(f"❌ 서비스 호출 실패: {e}")
-
-        future.add_done_callback(response_callback)
+        self.get_logger().info(f"✅ 퍼블리시 준비 완료 - 길이: {len(msg.data)} bytes")
+        self.raw_voice_pub_.publish(msg)
+        self.get_logger().info("📢 RawVoice 메시지 퍼블리시 완료")
 
 def main(args=None):
     rclpy.init(args=args)
