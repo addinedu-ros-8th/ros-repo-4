@@ -10,7 +10,6 @@
 #include <cppconn/prepared_statement.h>
 #include <cppconn/resultset.h>
 
-
 #include <iostream>
 #include <thread>
 #include <cstring>
@@ -39,7 +38,6 @@ Brain::Brain() : Node("brain") {
     set_follow_mode_client_ = this->create_client<SetFollowMode>("set_follow_mode");
     set_state_client_ = this->create_client<SetState>("set_state");
     redirect_client_ = this->create_client<Redirect>("redirect");
-    set_human_pose_mode_client_ = this->create_client<SetHumanPoseMode>("set_human_pose_mode");
 
     //Action Client
     path_planning_client_ = rclcpp_action::create_client<tangerbot_msgs::action::PathPlanning>(this, "path_planning");
@@ -378,9 +376,8 @@ void Brain::handle_command_service_callback(
     if (command == request->MOVETOSECTION){
         std::thread(&Brain::move_to_section, this, goal_pose).detach();
     }
-<<<<<<< HEAD
     
-    if (commad == request->FOLLOWING) {
+    if (command == request->FOLLOWING) {
         std::string robot_id = request->robot_id;
 
         bool set_state = set_robot_state(robot_id, 1, 1);  // Working, Following
@@ -411,8 +408,6 @@ void Brain::handle_command_service_callback(
 
 
     } 
-=======
->>>>>>> dev
 
     response->success = true;
 }
