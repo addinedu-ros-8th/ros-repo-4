@@ -86,7 +86,7 @@ class AdminInterface(Node, QMainWindow):
         self.show_map_image()
         
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        self.sock.bind(('0.0.0.0', 14555))  # 예시 포트
+        self.sock.bind(('0.0.0.0', 14550))  # 예시 포트
 
         self.buffers = {}  # {(robot_id, frame_id): [None]*total_chunks}
         self.meta = {}     # {(robot_id, frame_id): (received_chunks, total_chunks)}
@@ -189,7 +189,7 @@ class AdminInterface(Node, QMainWindow):
     # worker_report profile label
     def mask_image(self):
         
-        image_files = ['duck.jpg', 'puppy.png', 'dog.jpg']  # 넣고 싶은 이미지 파일들
+        image_files = [os.path.join(base_dir, '../data/duck.jpg'), os.path.join(base_dir, '../data/puppy.jpg'), os.path.join(base_dir, '../data/cat.jpg')]  # 넣고 싶은 이미지 파일들
         labels = [self.label_36, self.label_37, self.label_38]  # 대응하는 QLabel 객체들
 
         for image_file, label in zip(image_files, labels):

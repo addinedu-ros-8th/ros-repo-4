@@ -25,6 +25,13 @@ include_directories(
   include
 )
 
+install(PROGRAMS
+  scripts/llm_node.py
+  scripts/gesture_interpreter_node.py
+  DESTINATION lib/${PROJECT_NAME}
+)
+
+
 add_executable(udp_server
   src/udp_server.cpp
 )
@@ -39,6 +46,21 @@ target_include_directories(path_planner
   PRIVATE  
     ${OpenCV_INCLUDE_DIRS})
 target_link_libraries(path_planner ${OpenCV_LIBS})
+
+
+
+add_executable(following_controller src/following_controller.cpp)
+ament_target_dependencies(following_controller rclcpp rclcpp_action nav_msgs tangerbot_msgs tf2)
+
+target_include_directories(following_controller
+  PUBLIC
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+    $<INSTALL_INTERFACE:include>
+  PRIVATE  
+    ${OpenCV_INCLUDE_DIRS})
+target_link_libraries(following_controller ${OpenCV_LIBS})
+
+
 
 add_executable(brain
   src/brain.cpp
@@ -68,6 +90,7 @@ install(TARGETS
   udp_server
   path_planner
   brain
+  following_controller
   DESTINATION lib/${PROJECT_NAME})
 
 install(PROGRAMS

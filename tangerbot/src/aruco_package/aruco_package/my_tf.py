@@ -4,6 +4,7 @@ from rclpy.node import Node
 from geometry_msgs.msg import TransformStamped
 from geometry_msgs.msg import PoseWithCovarianceStamped
 from geometry_msgs.msg import PoseStamped
+from geometry_msgs.msg import Twist
 import tf2_ros
 import math
 import numpy as np
@@ -26,35 +27,18 @@ from sklearn.linear_model import LinearRegression
 from sklearn.neighbors import KNeighborsRegressor
 from sklearn.preprocessing import MinMaxScaler
 
-class YawKalmanFilter:
-    def __init__(self, process_noise=0.01, measurement_noise=0.1, initial_estimate=0.0):
-        self.x = initial_estimate  
-        self.P = 1.0         
-        self.Q = process_noise    
-        self.R = measurement_noise
-
-    def update(self, measurement):
-        # Prediction step (no control input)
-        self.P += self.Q
-
-        # Kalman gain
-        K = self.P / (self.P + self.R)
-
-        # Update estimate
-        self.x = self.x + K * (measurement - self.x)
-
-        # Update error covariance
-        self.P = (1 - K) * self.P
-
-        return self.x
-
+""" MyTfBroadcaster Node
+    
+    Description:
+        Estimate robot pose and publish
+"""
 class MyTfBroadcaster(Node):
     def __init__(self, source, aruco_dict_type, matrix_coefficients, distortion_coefficients, marker_length):
         super().__init__("my_tf_broadcaster")
         
         self.br = tf2_ros.TransformBroadcaster(self)
-        self.tracked_pose_pub = self.create_publisher(PoseStamped, "tracked_pose", 10)
         
+        self.tracked_pose_pub = self.create_publisher(PoseStamped, "tracked_pose", 10)
         self.timer = self.create_timer(0.05, self.timer_callback)
         self.t = 0.0
         
@@ -70,18 +54,27 @@ class MyTfBroadcaster(Node):
         self.distortion_coefficients = distortion_coefficients
         self.marker_length = marker_length
         
-        self.publisher = self.create_publisher(
-            PoseWithCovarianceStamped,
-            '/initialpose',
-            10)
+        pkg_path = get_package_share_directory('aruco_package')
+        robot_yaml_path = os.path.join(pkg_path, 'config', 'robot.yaml')
+        robot_data = self.get_yaml(robot_yaml_path)
+        self.aruco_marker_list = robot_data["robot"]["aruco_marker"]
+        self.robot_id_list = robot_data["robot"]["robot_id"]
         
-        self.robot_status_sub = self.create_subscription(Bool, "/robot_status", self.robot_status_callback, 10)
-        self.robot_status = None
+        self.prev_yaw = 0
+        self.prev_tvec = np.array([0, 0, 0])
+        self.ALPHA = 0.6
         
-        self.kf = YawKalmanFilter(process_noise=0.001, measurement_noise=0.05, initial_estimate=0.0)
+        self.is_driving = False
         
+        self.cmd_vel_sub = self.create_subscription(Twist, "/cmd_vel", lambda msg, ns="robot1": self.cmd_vel_callback(msg, ns), 10)
+        
+    def get_yaml(self, path):
+        with open(path, 'r') as f:
+            data = yaml.safe_load(f)
+        return data
+        
+    # Get frame and pose esimation of aruco marker
     def timer_callback(self):
-        
         ret, frame = self.cap.read()
         if not ret:
             raise Exception
@@ -93,21 +86,24 @@ class MyTfBroadcaster(Node):
         if key == ord('q'):
             raise Exception
         
-    def robot_status_callback(self, msg):
-        self.robot_status = msg.data
+    def cmd_vel_callback(self, msg, ns):
+        if msg.linear.x == 0.0 and msg.angular.z == 0.0:
+            self.is_driving = False
+        else:
+            self.is_driving = True
         
     def pose_estimation(self, frame):
         pkg_path = get_package_share_directory('aruco_package')
         calibration_path = os.path.join(pkg_path, 'config', 'pose.yaml')
         
-        with open(calibration_path, 'r') as f:
-            data = yaml.safe_load(f)
+        data = self.get_yaml(calibration_path)
         
         base_position = data["base_marker"]["position"]
         camera_pose = data["camera_pose"]
-            
+        time_stamp = self.get_clock().now().to_msg()
+        # Calibration marker TF    
         base = TransformStamped()
-        base.header.stamp = self.get_clock().now().to_msg()
+        base.header.stamp = time_stamp
         
         base.header.frame_id = "map"
         base.child_frame_id = "base_marker"
@@ -116,9 +112,10 @@ class MyTfBroadcaster(Node):
         base.transform.translation.y = base_position['y']
         base.transform.translation.z = base_position['z']
         
+        # Camera TF
         camera = TransformStamped()
                 
-        camera.header.stamp = self.get_clock().now().to_msg()
+        camera.header.stamp = time_stamp
         
         camera.header.frame_id = "map"
         camera.child_frame_id = "camera"
@@ -132,26 +129,32 @@ class MyTfBroadcaster(Node):
         camera.transform.rotation.z = camera_pose["orientation"]['z']
         camera.transform.rotation.w = camera_pose["orientation"]['w']
         
-        gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-        corners, ids, _ = self.detector.detectMarkers(gray)
-        
+        # Map -> odom TF required for nav2 navigation
         odom = TransformStamped()
         odom.header.frame_id = "map"
         odom.child_frame_id = "odom"
-        odom.header.stamp = self.get_clock().now().to_msg()
+        odom.header.stamp = time_stamp
         
         tf_list = [base, odom]
         
+        gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+        corners, ids, _ = self.detector.detectMarkers(gray)
         
         if ids is not None and len(corners) > 0:
             ids = [ids[i][0] for i in range(len(ids))]
             for i in range(len(ids)):
+                
+                # Get rvec, tvec
                 rvec, tvec, _ = cv2.aruco.estimatePoseSingleMarkers(
                     corners[i], self.marker_length, self.matrix_coefficients, self.distortion_coefficients
                 )
+                
+                # if ids[i] not in self.aruco_marker_list:
+                #     continue
+                
                 if ids[i] != 3:
                     continue
-                #if (ids[i] != 3): continue
+                
                 R, _ = cv2.Rodrigues(rvec)
                 tvec = tvec.reshape(3, 1)
                 R_c2m = R.T
@@ -196,25 +199,33 @@ class MyTfBroadcaster(Node):
                 
                 t = TransformStamped()
                 
-                t.header.stamp = self.get_clock().now().to_msg()
+                t.header.stamp = time_stamp
         
                 t.header.frame_id = "odom"
                 t.child_frame_id = "base_footprint"
                 
                 quat = tf_transformations.quaternion_from_matrix(T_map_marker)
                 
-                # t.transform.translation.x = float(calibrated_translation[0]/100)
+                # t.transform.translation.x = float(calibrated_translation[0]/100)e
+
                 # t.transform.translation.y = float(calibrated_translation[1]/100)
+                
+                if self.is_driving:
+                    ALPHA = self.ALPHA
+                else:
+                    ALPHA = 0.9
+                t_map_marker = np.array(t_map_marker)
+                t_map_marker = ALPHA * self.prev_tvec + (1 - ALPHA) * t_map_marker
+                self.prev_tvec = t_map_marker
                 t.transform.translation.x = t_map_marker[0]
                 t.transform.translation.y = t_map_marker[1]
                 t.transform.translation.z = 0.0
                 
                 roll, pitch, yaw = euler_from_quaternion(quat)
-                
-                filterd_yaw = self.kf.update(yaw)
-                #yaw = self.pred_yaw * self.ALPHA + yaw * (1 - self.ALPHA)
-                # if not self.robot_status:
-                #     yaw = filterd_yaw
+
+                yaw = self.prev_yaw * self.ALPHA + yaw * (1 - self.ALPHA)
+                self.prev_yaw = yaw
+            
                 q2d = quaternion_from_euler(0, 0, yaw)
 
                 t.transform.rotation.x = float(q2d[0])
@@ -252,21 +263,21 @@ def main(args=None):
     ap.add_argument("-t", "--type", type=str, default="DICT_4X4_100", help="Type of ArUCo dictionary")
     ap.add_argument("-s", "--source", default='0', help="Video source (camera index or video file path)")
     ap.add_argument("-m", "--marker-length", type=float, default=0.1, help="Actual length of the marker's side (in meters)")
-    parsed_args = vars(ap.parse_args())
-    
-    if ARUCO_DICT.get(parsed_args["type"], None) is None:
-        print(f"[ERROR] Unsupported ArUCo type: {parsed_args['type']}")
+    #parsed_args = vars(ap.parse_args())
+    parsed_args, unknown = ap.parse_known_args()
+    if ARUCO_DICT.get(parsed_args.type, None) is None:
+        print(f"[ERROR] Unsupported ArUCo type: {parsed_args.type}")
         sys.exit(1)
         
     pkg_path = get_package_share_directory('aruco_package')
-    aruco_dict_type = ARUCO_DICT[parsed_args["type"]]
+    aruco_dict_type = ARUCO_DICT[parsed_args.type]
     k_path = os.path.join(pkg_path, 'config', "calibration_matrix.npy")
     k = np.load(k_path)
     d_path = os.path.join(pkg_path, 'config', "distortion_coefficients.npy")
     d = np.load(d_path)
-    marker_length = parsed_args["marker_length"]
+    marker_length = parsed_args.marker_length
 
-    source = int(parsed_args["source"]) if parsed_args["source"].isdigit() else parsed_args["source"]
+    source = int(parsed_args.source) if parsed_args.source.isdigit() else parsed_args.source
 
     rp.init(args=args)
     tf = MyTfBroadcaster(source, aruco_dict_type, k, d, marker_length)

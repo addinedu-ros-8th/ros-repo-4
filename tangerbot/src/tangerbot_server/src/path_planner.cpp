@@ -34,6 +34,16 @@ PathPlanner::PathPlanner(const rclcpp::NodeOptions & options = rclcpp::NodeOptio
     tracked_pose_sub = this->create_subscription<geometry_msgs::msg::PoseStamped>(
         "/tracked_pose", 10, std::bind(&PathPlanner::tracked_pose_callback, this, _1)
     );
+
+    get_map_client = this->create_client<nav_msgs::srv::GetMap>("/map_server/map");
+
+    while (!get_map_client->wait_for_service(std::chrono::seconds(1))) {
+        RCLCPP_INFO(this->get_logger(), "Waiting for /map service...");
+    }
+    auto request = std::make_shared<nav_msgs::srv::GetMap::Request>();
+    auto result_future = get_map_client->async_send_request(
+        request,
+        std::bind(&PathPlanner::map_callback, this, std::placeholders::_1));
 }
 
 void PathPlanner::costmap_callback(const OccupancyGrid::SharedPtr msg) {
@@ -72,6 +82,46 @@ void PathPlanner::costmap_callback(const OccupancyGrid::SharedPtr msg) {
 
     cv::resize(result, result, cv::Size(width*5, height*5));
     costmap = result;
+}
+
+void PathPlanner::map_callback(rclcpp::Client<nav_msgs::srv::GetMap>::SharedFuture future) {
+    auto response = future.get();                     // GetMap::Response::SharedPtr
+    auto& msg = response->map;   
+    int width = msg.info.width;
+    int height = msg.info.height;
+    origin = msg.info.origin.position;
+    const std::vector<int8_t> &data = msg.data;
+
+    RCLCPP_INFO(this->get_logger(), "Map width: %d, height: %d", width, height);
+
+    cv::Mat map_img(height, width, CV_8UC1);
+
+    for (int y = 0; y < height; y++) {
+            for (int x = 0; x < width; x++) {
+                int8_t value = data[y * width + x];
+                uint8_t pixel;
+
+                if (value == 100)         pixel = 0; 
+                else                    pixel = 255; 
+
+                map_img.at<uchar>(y, x) = pixel;
+            }
+        }
+    
+    cv::Mat filled = map_img.clone();
+    cv::Mat mask(filled.rows + 2, filled.cols + 2, CV_8UC1, cv::Scalar(0));
+    cv::floodFill(filled, mask, cv::Point(0, 0), 128);
+
+    cv::Mat result(filled.size(), CV_8UC1);
+    for (int y = 0; y < filled.rows; ++y) {
+        for (int x = 0; x < filled.cols; ++x) {
+            result.at<uchar>(y, x) = (filled.at<uchar>(y, x) == 128) ? 0 : 255;
+            result.at<uchar>(y, x) &= map_img.at<uchar>(y, x);
+        }
+    }
+
+    cv::resize(result, result, cv::Size(width*5, height*5));
+    map = result;
 }
 
 void PathPlanner::tracked_pose_callback(const geometry_msgs::msg::PoseStamped::SharedPtr msg) {
@@ -244,7 +294,11 @@ void PathPlanner::execute(const std::shared_ptr<GoalHandlePathPlanning> goal_han
     goal_pose.first = static_cast<int>(goal->goal.pose.position.x * 100) + map_pose.first;
     goal_pose.second = static_cast<int>(goal->goal.pose.position.y * 100) + map_pose.second;
 
-    auto [path, distance] = this->astar(costmap, dist, start, goal_pose, 5.0);
+    auto [path, distance] = this->astar(costmap, dist, start, goal_pose, 10.0);
+    if (path.empty()) {
+        RCLCPP_INFO(this->get_logger(), "Path planning with original map");
+        std::tie(path, distance) = this->astar(map, dist, start, goal_pose, 10.0);
+    }
    
     if (path.empty()) {
         auto result = std::make_shared<PathPlanning::Result>();
@@ -260,7 +314,7 @@ void PathPlanner::execute(const std::shared_ptr<GoalHandlePathPlanning> goal_han
     cv::Mat img_show = costmap;
     for (auto each : path) {
         RCLCPP_INFO(this->get_logger(), "Path x: %lf, y: %lf", each.first, each.second);
-        cv::circle(img_show, cv::Point(each.first * 100, each.second * 100), 5, cv::Scalar(0, 0, 0), -1);
+        cv::circle(img_show, cv::Point(map_pose.first + each.first * 100, map_pose.second + each.second * 100), 5, cv::Scalar(0, 0, 0), -1);
     }
     RCLCPP_INFO(this->get_logger(), "Redeay for sending path");
     auto path_msg = nav_msgs::msg::Path();

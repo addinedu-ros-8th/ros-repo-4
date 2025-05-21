@@ -55,8 +55,9 @@ public:
         // SGM 초기화
         initSGM();
 
+        // 서버
         service_ = this->create_service<tangerbot_msgs::srv::SetFollowMode>(
-            "set_follower_mode",
+            "/vision/set_follow_mode",
             std::bind(&Follower::handle_set_follower, this, std::placeholders::_1, std::placeholders::_2)
         );
 
@@ -84,15 +85,15 @@ private:
     void handle_set_follower(
         const std::shared_ptr<tangerbot_msgs::srv::SetFollowMode::Request> req,
         std::shared_ptr<tangerbot_msgs::srv::SetFollowMode::Response> res) {
-        string tmp = req->robot_id;        
+        string tmp = req->robot_id;
         robot_id_ = stoi(tmp.substr(5));
         robot_id_--;
-        active_ = req->mode;        // 동작 on/off
+        active_ = req->mode;        
         res->success = true;
         RCLCPP_INFO(get_logger(),
-          "[Follower] robot %u %s", robot_id_,
-          active_ ? "ENABLED" : "DISABLED"
+          "[Follower] robot %u %s", robot_id_, active_ ? "ENABLED" : "DISABLED"
         );
+        return;
     }
 
     void point_callback(const geometry_msgs::msg::PointStamped::SharedPtr msg) {
@@ -222,20 +223,6 @@ private:
 
         // 1) Grab two GRAY frames
         cv::Mat gray_l, gray_r;
-
-
-        /////
-        if (!readSharedGray(robot_id_, 0, gray_l)) {
-            RCLCPP_WARN(get_logger(), "[Follower] readSharedGray left failed");
-            return;
-        }
-        if (!readSharedGray(robot_id_, 1, gray_r)) {
-            RCLCPP_WARN(get_logger(), "[Follower] readSharedGray right failed");
-            return;
-        }
-        /////
-
-
         if (!readSharedGray(robot_id_, 0, gray_l) || !readSharedGray(robot_id_, 1, gray_r)) return;
 
         // 2) Rectify

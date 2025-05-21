@@ -14,8 +14,13 @@
   <depend>geometry_msgs</depend>
   <depend>nav_msgs</depend>
   <depend>tangerbot_msgs</depend>
+<<<<<<< HEAD
 
 
+=======
+ 
+  <exec_depend>python3</exec_depend>
+>>>>>>> dev
 
   <test_depend>ament_lint_auto</test_depend>
   <test_depend>ament_lint_common</test_depend>
