@@ -2,10 +2,10 @@
 
 import rclpy
 from rclpy.node import Node
-from std_msgs.msg import Int32
+from tangerbot_msgs.msg import Gesture
+from geometry_msgs.msg import Point
 import cv2
 import mediapipe as mp
-
 import numpy as np
 import posix_ipc
 import mmap
@@ -14,24 +14,23 @@ import struct
 class GestureNode(Node):
     def __init__(self):
         super().__init__('gesture_node')
-        self.publisher_ = self.create_publisher(Int32, 'vision_server/gesture', 10)
+        self.publisher_ = self.create_publisher(Gesture, '/gesture', 10)
 
         # MediaPipe 초기화
         self.mp_hands = mp.solutions.hands
         self.hands = self.mp_hands.Hands(static_image_mode=False, max_num_hands=1)
         self.mp_drawing = mp.solutions.drawing_utils
 
-        # OpenCV 초기화
-        self.running = True  # 루프 중지 플래그
+        # OpenCV 및 타이머
+        self.running = True
         self.timer = self.create_timer(0.05, self.process_frame)  # 20 FPS
 
         # 공유 메모리 초기화
         self.shm = posix_ipc.SharedMemory("/stereo_shm", flags=0)
         self.seg_size = 3 * (4 + 4 + 56 + (1 << 20))
-        self.mapfile = mmap.mmap(self.shm.fd, self.seg_size, access = mmap.ACCESS_READ)
+        self.mapfile = mmap.mmap(self.shm.fd, self.seg_size, access=mmap.ACCESS_READ)
         self.shm.close_fd()
 
-        # 디코딩 오프셋
         self.OFFSET_FRAME_ID = 0
         self.OFFSET_SIZE = 4
         self.OFFSET_DATA = 64
@@ -41,6 +40,8 @@ class GestureNode(Node):
         self.NUM_CAMERAS = 3
         self.robot_idx = 0
         self.camera_id = 2  # picam
+
+        self.robot_id = "robot1"  # 하드코딩 또는 동적으로 수정 가능
 
     def read_shared_memory(self):
         BASE_OFFSET = (self.robot_idx * self.NUM_CAMERAS + self.camera_id) * self.SLOT_SIZE
@@ -76,22 +77,21 @@ class GestureNode(Node):
             return None, None
 
         return img, frame_id_1
-    
+
     def classify_hand_gesture(self, landmarks):
-        finger_tips = [8, 12, 16, 20]  # index, middle, ring, pinky
+        finger_tips = [8, 12, 16, 20]
         finger_pips = [6, 10, 14, 18]
-
         fingers_up = [landmarks[tip].y < landmarks[pip].y for tip, pip in zip(finger_tips, finger_pips)]
-        thumb_open = landmarks[4].x < landmarks[3].x
 
-        if all(fingers_up) and thumb_open:
-            return 1  # Palm
-        elif fingers_up[0] and not any(fingers_up[1:]):
-            return 2  # Index/Back of Hand
-        elif not any(fingers_up) and not thumb_open:
-            return 0  # Fist
-        else:
-            return -1  # Unknown
+        thumb_tip = landmarks[4]
+        thumb_cmc = landmarks[1]
+        thumb_folded = abs(thumb_tip.x - thumb_cmc.x) < 0.05
+
+        if all(fingers_up) and not thumb_folded:
+            return 2  # Palm -> COME
+        if sum(fingers_up) <= 1 and thumb_folded:
+            return 1  # Fist -> STOP
+        return -1  # UNKNOWN
 
     def process_frame(self):
         if not self.running:
@@ -99,39 +99,45 @@ class GestureNode(Node):
 
         frame, frame_id = self.read_shared_memory()
         if frame is None:
-            self.get_logger().warn("카메라 프레임을 읽을 수 없습니다.")
             return
 
-        image = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-        results = self.hands.process(image)
+        image_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+        results = self.hands.process(image_rgb)
 
         gesture = -1
+        point = Point(x=0.0, y=0.0, z=0.0)
+
         if results.multi_hand_landmarks:
-            for hand_landmarks in results.multi_hand_landmarks:
-                gesture = self.classify_hand_gesture(hand_landmarks.landmark)
-                self.mp_drawing.draw_landmarks(frame, hand_landmarks, self.mp_hands.HAND_CONNECTIONS)
+            hand_landmarks = results.multi_hand_landmarks[0]
+            gesture = self.classify_hand_gesture(hand_landmarks.landmark)
+
+            # 좌표 설정 (손목 기준)
+            wrist = hand_landmarks.landmark[0]
+            point = Point(x=wrist.x, y=wrist.y, z=wrist.z)
+
+            self.mp_drawing.draw_landmarks(image_rgb, hand_landmarks, self.mp_hands.HAND_CONNECTIONS)
 
         # 퍼블리시
         if gesture != -1:
-            msg = Int32()
-            msg.data = gesture
+            msg = Gesture()
+            msg.robot_id = self.robot_id
+            msg.gesture = gesture  # 0: COME, 1: STOP, 2: BACK
+            msg.point = point
+
             self.publisher_.publish(msg)
-            self.get_logger().info(f"Published gesture: {gesture}")
+            self.get_logger().info(f"Published Gesture - ID: {msg.robot_id}, Type: {gesture}, Point: ({point.x:.2f}, {point.y:.2f}, {point.z:.2f})")
 
         # 디버깅 시각화
-
         gesture_labels = {
-            0: "STOP",
-            1: "COME",
-            2: "BACK",
+            2: "COME",
+            1: "STOP",
             -1: "UNKNOWN"
         }
         gesture_text = gesture_labels.get(gesture, "❓ UNKNOWN")
+        cv2.putText(image_rgb, f"Gesture: {gesture_text}", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 0, 0), 2)
+        cv2.imshow('Hand Gesture', image_rgb)
 
-        cv2.putText(frame, f"Gesture: {gesture_text} ({gesture})", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 0, 0), 2)
-        cv2.imshow('Hand Gesture', frame)
-
-        # ESC 키 종료
+        # ESC 종료
         if cv2.waitKey(1) & 0xFF == 27:
             self.running = False
             self.get_logger().info("ESC 입력 감지. 노드 종료 예정.")

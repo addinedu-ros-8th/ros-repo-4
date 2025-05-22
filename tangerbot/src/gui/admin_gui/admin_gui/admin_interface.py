@@ -135,7 +135,7 @@ class AdminInterface(Node, QMainWindow):
 
     # worker_report profile label
     def mask_image(self):
-        
+        base_dir = os.path.dirname(os.path.abspath(__file__))
         image_files = [os.path.join(base_dir, '../data/duck.jpg'), os.path.join(base_dir, '../data/puppy.jpg'), os.path.join(base_dir, '../data/cat.jpg')]  # 넣고 싶은 이미지 파일들
         labels = [self.label_36, self.label_37, self.label_38]  # 대응하는 QLabel 객체들
 
