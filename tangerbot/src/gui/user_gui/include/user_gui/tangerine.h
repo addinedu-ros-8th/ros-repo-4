@@ -6,15 +6,21 @@
 #include <QMessageBox>
 #include <QMovie>
 #include <QCoreApplication>
+#include <QDialog>
 
 #include <rclcpp/rclcpp.hpp>
 #include <geometry_msgs/msg/twist.hpp>
 #include "tangerbot_msgs/msg/call_state.hpp"
 #include <nav_msgs/msg/occupancy_grid.hpp>
 #include <geometry_msgs/msg/pose_stamped.hpp>
+#include <tangerbot_msgs/msg/decoded_voice.hpp>
+#include "tangerbot_msgs/msg/robot_state.hpp"
 
 #include "tangerbot_msgs/srv/handle_command.hpp"
 #include "tangerbot_msgs/srv/sign_up.hpp"
+#include "tangerbot_msgs/srv/handle_raw_voice.hpp"
+
+#include "user_gui/recording_dialog.h"
 
 #include <chrono>
 #include <string>
@@ -22,6 +28,7 @@
 
 class CircularProgressBar;
 class BatteryWidget;
+class RecordingDialog;
 
 namespace Ui { 
     class Tangerine; 
@@ -34,7 +41,11 @@ using PoseStamped = geometry_msgs::msg::PoseStamped;
 using OccupancyGrid = nav_msgs::msg::OccupancyGrid;
 using HandleCommand = tangerbot_msgs::srv::HandleCommand;
 using CallState = tangerbot_msgs::msg::CallState;
+using DecodedVoice = tangerbot_msgs::msg::DecodedVoice;
+using RobotState = tangerbot_msgs::msg::RobotState;
 using SignUp = tangerbot_msgs::srv::SignUp;
+using HandleRawVoice = tangerbot_msgs::srv::HandleRawVoice;
+
 
 class Tangerine : public QMainWindow
 {
@@ -47,6 +58,7 @@ public:
 
 private slots:
     void handle_selection(QString section);
+    void process_audio_data(QByteArray audio_data);
 
 private:
     Ui::Tangerine *ui;
@@ -56,10 +68,16 @@ private:
 
     rclcpp::Node::SharedPtr node_;
     rclcpp::Publisher<PoseStamped>::SharedPtr goal_pub_;
+    rclcpp::Publisher<DecodedVoice>::SharedPtr decoded_voice_pub;
     rclcpp::Subscription<OccupancyGrid>::SharedPtr map_subscriber_;
-    rclcpp::Client<HandleCommand>::SharedPtr handle_command_client;
     rclcpp::Subscription<CallState>::SharedPtr call_state_sub;
+    rclcpp::Subscription<RobotState>::SharedPtr robot_state_sub;
+
+
+    rclcpp::Client<HandleCommand>::SharedPtr handle_command_client;
     rclcpp::Client<SignUp>::SharedPtr signup_client;
+    rclcpp::Client<HandleRawVoice>::SharedPtr handle_raw_voice_client;
+
 
     bool map_received_;
     QImage map_image_;
@@ -67,6 +85,7 @@ private:
     CircularProgressBar *circular_progressbar;
     CircularProgressBar *battery_circular_progressbar;
     BatteryWidget *battery_widget;
+    RecordingDialog *record_dialog;
 
     bool called_robot = false;
     int current_robottab_index = 0;
@@ -74,6 +93,7 @@ private:
     bool follow_mode = false;
 
     void call_state_callback(const CallState::SharedPtr msg);
+    void robot_state_callback(const RobotState::SharedPtr msg);
     void signup_response_callback(rclcpp::Client<SignUp>::SharedFuture future);
     
     void request_signup();

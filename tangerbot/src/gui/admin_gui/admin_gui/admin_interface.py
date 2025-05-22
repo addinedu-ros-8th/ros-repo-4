@@ -23,6 +23,7 @@ import struct
 from PyQt5.QtWidgets import QTableWidgetItem, QHeaderView
 from PyQt5.QtCore import pyqtSignal
 import random
+from ament_index_python.packages import get_package_share_directory
 
 class AdminInterface(Node, QMainWindow):
     HEADER_FORMAT = '<BBBIHHI'  # little-endian: magic, robot_id, camera_id, frame_id, total_chunks, chunk_id, chunk_size
@@ -34,7 +35,8 @@ class AdminInterface(Node, QMainWindow):
         Node.__init__(self, 'admin_interface_gui')
         
         # UI 파일 로드
-        ui_file = os.path.join(os.path.dirname(__file__), '../ui/admin_interface.ui')
+        pkg_path = get_package_share_directory('admin_gui')
+        ui_file = os.path.join(pkg_path, 'ui', 'admin_interface.ui')
         loadUi(ui_file, self)
 
         
