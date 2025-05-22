@@ -6,6 +6,7 @@ tangerbot/log/
 # nav helper class
 tangerbot/src/tangerbot_server/include/tangerbot_server/navigator.h
 tangerbot/src/tangerbot_server/src/navigator.cpp
+
 # DL model
 tangerbot/yolov8l-seg.pt
 
