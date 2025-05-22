@@ -37,7 +37,6 @@ Brain::Brain() : Node("brain") {
     set_human_pose_mode_client_ = this->create_client<SetFollowMode>("/set_human_pose_follow_mode");
     set_state_client_ = this->create_client<SetState>("set_state");
 
-
     //Action Client
     path_planning_client_ = rclcpp_action::create_client<tangerbot_msgs::action::PathPlanning>(this, "path_planning");
     follow_path_client_ = rclcpp_action::create_client<nav2_msgs::action::FollowPath>(this, "follow_path");
@@ -762,7 +761,6 @@ void Brain::handle_command_service_callback(
 
         RCLCPP_INFO(this->get_logger(), "Following mode activated for robot: %s", robot_id.c_str());
         response->success = true;
-
     }
 
     response->success = true;

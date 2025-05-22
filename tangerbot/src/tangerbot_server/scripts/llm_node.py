@@ -4,7 +4,7 @@ from rclpy.node import Node
 import re
 
 from tangerbot_msgs.msg import DecodedVoice
-from tangerbot_msgs.srv import HandleCommand
+from tangerbot_msgs.srv import HandleCommand  # 수정된 서비스 사용
 
 class tangerbotServer(Node):
     def __init__(self):
@@ -18,24 +18,28 @@ class tangerbotServer(Node):
         )
 
         self.cli = self.create_client(HandleCommand, 'handle_command')
-        
         while not self.cli.wait_for_service(timeout_sec=1.0):
             self.get_logger().info('📡 handle_command 서비스 대기 중...')
 
-        self.get_logger().info("🧠 LLM Node 시작됨 - '/decoded_voice' 구독 중")
-        
-        self.declare_parameter('robot_id', 'tgb-01')  # 기본값 설정
+        self.get_logger().info("✅ LLM Node 시작됨 - '/decoded_voice' 구독 중, 'handle_command' 서비스 호출 준비됨")
+
+        self.declare_parameter('robot_id', 'robot1')  # 기본값 설정
+        self.declare_parameter('user_id', 'user1')
         self.robot_id = self.get_parameter('robot_id').get_parameter_value().string_value
-        
+        self.user_id = self.get_parameter('user_id').get_parameter_value().string_value
+
     def get_robot_id(self):
         return self.robot_id
+    
+    def get_user_id(self):
+        return self.user_id
 
     def process_text_callback(self, msg):
         text = msg.text
-        user_id = msg.user_id
+        user_id = self.get_user_id()
         robot_id = self.get_robot_id()
 
-        self.get_logger().info(f"🗣 받은 텍스트: {text}")
+        self.get_logger().info(f"✅ 받은 텍스트: {text}")
 
         command = self.analyze_command(text)
         action_type = self.map_action_to_type(command["action"])
@@ -46,12 +50,13 @@ class tangerbotServer(Node):
             req.robot_id = robot_id
             req.user_id = user_id
             req.type = action_type
-            req.data = area_number if area_number is not None else 0
+            req.data = f"section{area_number}" if area_number is not None else ""
 
             future = self.cli.call_async(req)
             future.add_done_callback(self.handle_response)
 
             self.get_logger().info(f"📨 명령 전송: {req}")
+            # self.get_logger("%s, %s, %s, %s", req.robot_id, req.user_id, req.type, req.data)
         else:
             self.get_logger().info("❌ 명령을 이해하지 못했습니다.")
 
@@ -61,12 +66,9 @@ class tangerbotServer(Node):
             if response.success:
                 self.get_logger().info("✅ 명령 처리 성공!")
             else:
-                self.get_logger().info("⚠️ 명령 처리 실패!")
+                self.get_logger().warn("❌ 명령 처리 실패!")
         except Exception as e:
             self.get_logger().error(f"❌ 서비스 호출 실패: {e}")
-
-    def get_robot_id(self):
-        return "tgb-01"
 
     def analyze_command(self, text):
         text = self.convert_korean_number(text)
