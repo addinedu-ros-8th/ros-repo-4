@@ -203,11 +203,11 @@ private:
         sgm::StereoSGM::Parameters params;
         // params.P1 = 35;
         // params.P2 = 110;
-        params.P1 = 30;
-        params.P2 = 110;
+        params.P1 = 20;
+        params.P2 = 140;
         // params.uniqueness = 0.90f;
-        params.uniqueness = 4.0f;
-        params.LR_max_diff = 3;
+        params.uniqueness = 1.0f;
+        params.LR_max_diff = 5;
         params.census_type = sgm::CensusType::SYMMETRIC_CENSUS_9x7;
 
         sgm_ = std::make_unique<sgm::StereoSGM>(
@@ -267,10 +267,12 @@ private:
         // Download disparity
         d_disp_->download(disp_.data);
 
+
+        
         // Speckle 제거
         cv::Mat tmp_disp;
         disp_.convertTo(tmp_disp, CV_16SC1);  // filterSpeckles는 이 타입 필요
-        cv::filterSpeckles(tmp_disp, invalid_disp_, 200, 2.5);
+        cv::filterSpeckles(tmp_disp, invalid_disp_, 150, 2.0);
         tmp_disp.convertTo(disp_, disp_.type());  // 다시 disp_로 저장 (CV_16U 또는 CV_8U)
 
         // CUDA Bilateral Filter
@@ -278,6 +280,8 @@ private:
         cv::cuda::GpuMat g_filt;
         cv::cuda::bilateralFilter(g_disp, g_filt, 7, 15.0, 15.0);
         g_filt.download(disp_);
+        
+
 
         // 시각화
         colorize_disparity(disp_, disp_color_, 128, disp_ == invalid_disp_);
