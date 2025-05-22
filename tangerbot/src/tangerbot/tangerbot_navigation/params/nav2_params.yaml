@@ -43,7 +43,7 @@ controller_server:
     goal_checker:
       plugin: "nav2_controller::SimpleGoalChecker"
       xy_goal_tolerance: 0.10
-      yaw_goal_tolerance: 0.25
+      yaw_goal_tolerance: 0.10
       stateful: True
     FollowPath:
       plugin: "nav2_regulated_pure_pursuit_controller::RegulatedPurePursuitController"
@@ -319,8 +319,8 @@ global_costmap:
         map_subscribe_transient_local: True
       inflation_layer:
         plugin: "nav2_costmap_2d::InflationLayer"
-        cost_scaling_factor: 10.0
-        inflation_radius: 0.01
+        cost_scaling_factor: 0.0
+        inflation_radius: 0.06
       always_send_full_costmap: True
 
 
