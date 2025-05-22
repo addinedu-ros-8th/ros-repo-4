@@ -93,13 +93,13 @@ private:
 	    while (rclcpp::ok() && running_) {
 	        ssize_t n = recvfrom(sockfd_, buffer.data(), buffer.size(), 0, nullptr, nullptr);
 	        if (n <= 0) continue;
-			
+			//RCLCPP_INFO(this->get_logger(), "Receive image");
 	        auto *hdr = reinterpret_cast<PacketHeader*>(buffer.data());	// 헤더
 			
-			if (hdr->camera_id == 2) {
-				// 바로 릴레이
-				sendto(dest_sockfd_, buffer.data(), n, 0, reinterpret_cast<sockaddr*>(&dest_addr_), sizeof(dest_addr_));
-			}
+			// if (hdr->camera_id == 2) {
+			// 	// 바로 릴레이
+			// 	sendto(dest_sockfd_, buffer.data(), n, 0, reinterpret_cast<sockaddr*>(&dest_addr_), sizeof(dest_addr_));
+			// }
 
 			// 시작비트 확인
 	        if (hdr->magic != MAGIC_VALUE) {
@@ -153,13 +153,14 @@ private:
 						cv::imshow("img2", img);
 						cv::waitKey(1);
 					}
+						
 					if (hdr->camera_id == 2) {
 						cv::imshow("img3", img);
 						cv::waitKey(1);
 					}
 					*/
 
-	                Slot& slot = shm_ptr_->cam[hdr->robot_id - 1][hdr->camera_id];
+	                Slot& slot = shm_ptr_->cam[hdr->robot_id - 1][int(hdr->camera_id)];
 	                if (encoded.size() > MAX_IMG) {
 	                    std::cerr << "Encoded image size " << encoded.size() << " exceeds MAX_IMG " << MAX_IMG << "\n";
 	                } else {

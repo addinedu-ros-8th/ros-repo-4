@@ -29,7 +29,7 @@ class HumanPose(Node):
 
         self.active_ = False
         self.robot_idx = 0
-        self.camera_id = 0  # 왼쪽 카메라
+        self.camera_id = 1  # 왼쪽 카메라
 
         self.pub = self.create_publisher(PointStamped, 'object_pixel', 10)
         self.srv = self.create_service(SetFollowMode, 'set_human_pose_follow_mode', self.handle_set_mode)
@@ -41,14 +41,14 @@ class HumanPose(Node):
         # Deep Learning 초기화
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.get_logger().info(f"Using device: {self.device}")
-        self.model = YOLO("yolov8l-seg.pt").to(self.device)
-        self.tracker = DeepSort(max_age=50, n_init = 2, max_cosine_distance = 0.3, nn_budget = 100)
+        self.model = YOLO("yolov8n-seg.pt").to(self.device)
+        self.tracker = DeepSort(max_age = 50, n_init = 2, max_cosine_distance = 0.3, nn_budget = 100)
         self.TARGET_ID = None
 
         # 공유 메모리 초기화
         self.shm = posix_ipc.SharedMemory("/stereo_shm", flags=0)
-        self.seg_size = 3 * (4 + 4 + 56 + (1 << 20))
-        self.mapfile = mmap.mmap(self.shm.fd, self.seg_size, access=mmap.ACCESS_READ)
+        self.seg_size = 9 * (4 + 4 + 56 + (1 << 20))
+        self.mapfile = mmap.mmap(self.shm.fd, self.seg_size, access = mmap.ACCESS_READ)
         self.shm.close_fd()
 
         # 디코딩 오프셋
@@ -66,7 +66,7 @@ class HumanPose(Node):
         self.fail_count = 0
         self.max_fails = 3
         self.last_detection_time = time.time()  # 마지막 유효 디텍션 시간
-        self.no_detection_timeout = 8.0  # 8초 타임아웃
+        self.no_detection_timeout = 5.0  # 5초 타임아웃
 
     def handle_set_mode(self, request, response):
         # "robot1" → 인덱스 0
@@ -177,7 +177,7 @@ class HumanPose(Node):
 
         index_to_id = {}
         for yolo_idx, track_idx in zip(r, c):
-            if iou_matrix[yolo_idx][track_idx] > 0.7:
+            if iou_matrix[yolo_idx][track_idx] > 0.6:
                 index_to_id[yolo_idx] = track_ids[track_idx]
 
         if self.TARGET_ID is None and len(index_to_id) > 0:
@@ -288,13 +288,13 @@ class HumanPose(Node):
                 track_ids.append(t.track_id)
 
             if track_boxes:
-                track_tensor = torch.tensor(track_boxes, dtype=torch.float32)
+                track_tensor = torch.tensor(track_boxes, dtype = torch.float32)
                 iou_matrix = box_iou(yolo_tensor, track_tensor)
                 r, c = linear_sum_assignment(-iou_matrix.numpy())
 
                 index_to_id = {}
                 for yolo_idx, track_idx in zip(r, c):
-                    if iou_matrix[yolo_idx][track_idx] > 0.7:
+                    if iou_matrix[yolo_idx][track_idx] > 0.6:
                         index_to_id[yolo_idx] = track_ids[track_idx]
 
                 if masks is not None:

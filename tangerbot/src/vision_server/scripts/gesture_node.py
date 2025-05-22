@@ -27,8 +27,8 @@ class GestureNode(Node):
 
         # 공유 메모리 초기화
         self.shm = posix_ipc.SharedMemory("/stereo_shm", flags=0)
-        self.seg_size = 3 * (4 + 4 + 56 + (1 << 20))
-        self.mapfile = mmap.mmap(self.shm.fd, self.seg_size, access=mmap.ACCESS_READ)
+        self.seg_size = 9 * (4 + 4 + 56 + (1 << 20))
+        self.mapfile = mmap.mmap(self.shm.fd, self.seg_size, access = mmap.ACCESS_READ)
         self.shm.close_fd()
 
         self.OFFSET_FRAME_ID = 0
@@ -163,3 +163,6 @@ def main(args=None):
 
 if __name__ == '__main__':
     main()
+
+
+

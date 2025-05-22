@@ -25,6 +25,13 @@ include_directories(
   include
 )
 
+install(PROGRAMS
+  scripts/llm_node.py
+  scripts/gesture_interpreter_node.py
+  DESTINATION lib/${PROJECT_NAME}
+)
+
+
 add_executable(udp_server
   src/udp_server.cpp
 )
@@ -88,6 +95,7 @@ install(TARGETS
 
 install(PROGRAMS
   scripts/llm_node.py
+  scripts/wav_to_topic.py
   DESTINATION lib/${PROJECT_NAME}
 )
 
