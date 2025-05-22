@@ -15,7 +15,6 @@
 #include "tangerbot_msgs/srv/get_workload.hpp"
 #include "tangerbot_msgs/srv/set_follow_mode.hpp"
 #include "tangerbot_msgs/srv/set_state.hpp"
-#include "tangerbot_msgs/srv/redirect.hpp"
 #include "tangerbot_msgs/srv/sign_up.hpp"
 #include "tangerbot_msgs/srv/sign_in.hpp"
 
@@ -53,12 +52,8 @@ public:
     using GetWorkload = tangerbot_msgs::srv::GetWorkload;
     using SetFollowMode = tangerbot_msgs::srv::SetFollowMode;
     using SetState = tangerbot_msgs::srv::SetState;
-    using Redirect = tangerbot_msgs::srv::Redirect;
-<<<<<<< HEAD
-=======
     using SignUp = tangerbot_msgs::srv::SignUp;
     using SignIn = tangerbot_msgs::srv::SignIn;
->>>>>>> dev
 
     //message
     using RobotState = tangerbot_msgs::msg::RobotState;
@@ -84,7 +79,6 @@ private:
     rclcpp::Client<SetFollowMode>::SharedPtr tserver_set_follow_mode_client_;
     rclcpp::Client<SetFollowMode>::SharedPtr set_human_pose_mode_client_;
     rclcpp::Client<SetState>::SharedPtr set_state_client_;
-    rclcpp::Client<Redirect>::SharedPtr redirect_client_;
     rclcpp::Subscription<RobotState>::SharedPtr robot_states_;
     rclcpp::Subscription<std_msgs::msg::Bool>::SharedPtr obstacle_subscriber_;
     rclcpp::Subscription<Gesture>::SharedPtr gesture_subscriber_;
