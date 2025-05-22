@@ -22,6 +22,7 @@ public:
 		// 파라미터 선언/획득
 		declare_parameter<int>("port", 14555);
 		port_ = this->get_parameter("port").as_int();
+		RCLCPP_INFO(this->get_logger(), "Listening on UDP port %d", port_);
 
 		// shared memory 열기
 		shm_ptr_ = shm::open(true);

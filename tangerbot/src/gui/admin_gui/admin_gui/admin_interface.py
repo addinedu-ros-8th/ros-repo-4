@@ -12,8 +12,8 @@ from functools import partial
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.figure import Figure
 from PyQt5.QtCore import Qt, QTimer
-from PyQt5.QtGui import QPainter, QPen, QColor, QPolygonF, QTransform
-from PyQt5.QtCore import QPointF
+from PyQt5.QtGui import QPainter, QPen, QColor, QPolygonF, QTransform, QFont
+from PyQt5.QtCore import QPointF, Qt
 import math
 import mysql.connector
 import threading
@@ -23,6 +23,51 @@ import struct
 from PyQt5.QtWidgets import QTableWidgetItem, QHeaderView
 from PyQt5.QtCore import pyqtSignal
 import random
+from PyQt5.QtWidgets import QWidget
+
+
+
+class HarvestCircle(QWidget):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self._value = 0  # 수확량 퍼센트
+
+    def set_value(self, value):
+        self._value = max(0, min(100, value))
+        self.update()
+
+    def paintEvent(self, event):
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.Antialiasing)
+
+        size = min(self.width(), self.height())
+        margin = 10
+        diameter = size - 2 * margin
+
+        rect = QRectF(
+            (self.width() - diameter) / 2,
+            (self.height() - diameter) / 2,
+            diameter,
+            diameter
+        )
+
+        start_angle = int(90 * 16)
+        span_angle = int(-self._value * 360 / 100 * 16)
+
+        painter.setPen(QPen(Qt.lightGray, 10))
+        painter.drawArc(rect, 0, 360 * 16)
+
+        painter.setPen(QPen(Qt.green, 10))
+        painter.drawArc(rect, start_angle, span_angle)
+
+        painter.setPen(Qt.white)
+        painter.setFont(QFont("Arial", 14, QFont.Bold))
+        # rect_top = QRectF(self.rect().x(), self.rect().y(), self.rect().width(), self.rect().height() / 2)
+        # rect_bottom = QRectF(self.rect().x(), self.rect().y() + self.rect().height() / 2, self.rect().width(), self.rect().height() / 2)
+
+        # painter.drawText(rect_top, Qt.AlignCenter, "수확량")
+        # painter.setFont(QFont("Arial", 14, QFont.Bold))  # 퍼센트는 글씨 좀 더 크게
+        painter.drawText(self.rect(), Qt.AlignCenter, f"수확량\n{self._value}%")
 
 class AdminInterface(Node, QMainWindow):
     HEADER_FORMAT = '<BBBIHHI'  # little-endian: magic, robot_id, camera_id, frame_id, total_chunks, chunk_id, chunk_size
@@ -56,6 +101,13 @@ class AdminInterface(Node, QMainWindow):
             print("[에러] 지도 이미지 로딩 실패")
             return
 
+        # 수확량
+        self.harvest_circle = HarvestCircle(self.widget)
+        self.harvest_circle.setGeometry(0, 0, self.widget.width(), self.widget.height())
+        self.harvest_circle.show()
+        # self.widget.hide()
+        self.harvest_circle.set_value(40)
+        
         # 로봇 위치 저장 dict {robot_id: Pose}
         self.robot_poses = {}
 
@@ -104,6 +156,7 @@ class AdminInterface(Node, QMainWindow):
         # RobotState 토픽 구독
         self.create_subscription(RobotState, '/robot_state', self.handle_robot_state, 10)
 
+
     def setButtonImage(self, button, image_path):
         button.setStyleSheet(f"""
             QPushButton {{
@@ -111,31 +164,31 @@ class AdminInterface(Node, QMainWindow):
                 border: none;
             }}
         """)
-        
-    # def show_map_image(self):
-    #     image_path = os.path.join(os.path.dirname(__file__), '../data/tangermap.xcf')
-    #     pixmap = QPixmap(image_path)
-
-    #     if pixmap.isNull():
-    #         print("[에러] 이미지 로딩 실패:", image_path)
-    #         return
-
-    #     # 라벨의 현재 크기를 기준으로 딱 맞게 리사이즈
-    #     label_size = self.label_17.size()
-    #     scaled_pixmap = pixmap.scaled(label_size, Qt.IgnoreAspectRatio, Qt.SmoothTransformation)
-
-    #     self.label_17.setPixmap(scaled_pixmap)
-    #     self.label_17.setScaledContents(False)
+    
     
     def show_map_image(self):
-        image_path = os.path.join(os.path.dirname(__file__), '../data/tangermap_2x.png')
-    # def worker_time(self):
-    #     cursor.excute("SELECT * FROM DailyWorkload WHERE UID, workload")
+        image_path = os.path.join(os.path.dirname(__file__), '../data/tangermap.png')
+        print("로드 시도 이미지 경로:", image_path)
+
+        pixmap = QPixmap(image_path)
+        if pixmap.isNull():
+            print("[에러] 이미지 로딩 실패:", image_path)
+            return
+
+        target_width = 658
+        target_height = 291
+
+        self.label_17.setFixedSize(target_width, target_height)
+
+        scaled_pixmap = pixmap.scaled(target_width, target_height, Qt.IgnoreAspectRatio, Qt.SmoothTransformation)
+        self.label_17.setPixmap(scaled_pixmap)
+        self.label_17.setScaledContents(True)  # 또는 False로 두되 크기 맞추기
+        self.label_17.repaint()
 
 
     # worker_report profile label
     def mask_image(self):
-        
+        base_dir = os.path.dirname(os.path.abspath(__file__))
         image_files = [os.path.join(base_dir, '../data/duck.jpg'), os.path.join(base_dir, '../data/puppy.jpg'), os.path.join(base_dir, '../data/cat.jpg')]  # 넣고 싶은 이미지 파일들
         labels = [self.label_36, self.label_37, self.label_38]  # 대응하는 QLabel 객체들
 
@@ -158,8 +211,9 @@ class AdminInterface(Node, QMainWindow):
 
         scaled_pixmap = pixmap.scaled(self.label_17.size())
         self.label_17.setPixmap(scaled_pixmap)
-        self.label_17.setScaledContents(True)  # 또는 False로 두되 크기 맞추기
+        self.label_17.setScaledContents(False)  # 또는 False로 두되 크기 맞추기
         self.label_17.repaint()
+            
             
     def ros_to_image_coords(self, x, y):
         origin_x, origin_y = 0.0, 0.0
@@ -189,10 +243,12 @@ class AdminInterface(Node, QMainWindow):
 
         return px_scaled, py_scaled
 
+
     def quaternion_to_yaw(self, q):
         siny_cosp = 2 * (q.w * q.z + q.x * q.y)
         cosy_cosp = 1 - 2 * (q.y * q.y + q.z * q.z)
         return math.atan2(siny_cosp, cosy_cosp)
+
 
     def draw_robot_triangle(self, painter, x, y, yaw):
         size = 15
@@ -201,7 +257,6 @@ class AdminInterface(Node, QMainWindow):
             QPointF(size / 2, size / 2),
             QPointF(-size / 2, size / 2)
         ]
-
         rotated_points = []
         for p in points:
             rx = p.x() * math.cos(yaw) - p.y() * math.sin(yaw)
@@ -212,12 +267,14 @@ class AdminInterface(Node, QMainWindow):
         painter.setBrush(QColor(255, 0, 0, 180))  # 반투명 빨강
         painter.drawPolygon(polygon)
 
+
     def handle_robot_pose(self, msg):
         # ROS RobotPose 메시지: msg.robot_id, msg.pose (PoseStamped)
         self.robot_poses[msg.robot_id] = msg.pose.pose
 
         # 갱신된 위치로 지도 업데이트
         self.update_map_with_robots()
+
 
     def update_map_with_robots(self):
         label_w = self.label_17.width()
@@ -275,7 +332,6 @@ class AdminInterface(Node, QMainWindow):
         # 5) 그려진 이미지 라벨에 세팅, 스케일링 다시 안 함
         self.label_17.setPixmap(pixmap_to_paint)
         self.label_17.setScaledContents(False)
-
 
 
     def load_log_data(self):
@@ -425,7 +481,11 @@ class AdminInterface(Node, QMainWindow):
         }
         label = label_map.get(robot_id)
         if label:
-            label.setPixmap(pixmap.scaled(label.size(), Qt.KeepAspectRatio))
+            label.setScaledContents(False)  # 명확하게 설정
+            print(f"라벨 크기: {label.width()} x {label.height()}")
+            print(f"수신된 영상 크기: {pixmap.width()} x {pixmap.height()}")
+            scaled_pixmap = pixmap.scaled(label.size(), Qt.KeepAspectRatio, Qt.SmoothTransformation)
+            label.setPixmap(scaled_pixmap)
 
     def update_graph(self, period):
         self.figure.clear()
@@ -435,7 +495,7 @@ class AdminInterface(Node, QMainWindow):
             labels = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
             data = [random.randint(5, 15) for _ in range(7)]
         elif period == "monthly":
-            labels = [f'{i+1}일' for i in range(30)]
+            labels = [f'{i+1}day' for i in range(30)]
             data = [random.randint(10, 20) for _ in range(30)]
         elif period == "yearly":
             labels = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
@@ -445,9 +505,9 @@ class AdminInterface(Node, QMainWindow):
             data = []
 
         ax.bar(labels, data, color="#3399ff")
-        ax.set_title(f"{period.capitalize()} 수확량")
-        ax.set_ylabel("수확량 (kg)")
-        ax.set_xlabel("기간")
+        ax.set_title(f"{period.capitalize()} harvest")
+        ax.set_ylabel("harvest (kg)")
+        ax.set_xlabel("period")
         ax.tick_params(axis='x', labelrotation=45)
         self.canvas.draw()
 
