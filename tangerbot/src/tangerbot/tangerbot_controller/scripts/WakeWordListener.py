@@ -29,8 +29,8 @@ class WakeWordListener(Node):
             self.get_logger().info('⏳ 감정 서비스 기다리는 중...')
             
         self.voice_cli = self.create_client(HandleRawVoice, 'handle_raw_voice')
-        while not self.voice_cli.wait_for_service(timeout_sec=1.0):
-            self.get_logger().info('🎙 음성 처리 서비스 기다리는 중...')
+        # while not self.voice_cli.wait_for_service(timeout_sec=1.0):
+        #     self.get_logger().info('🎙 음성 처리 서비스 기다리는 중...')
 
         # 음성 인식기 초기화
         self.recognizer = sr.Recognizer()

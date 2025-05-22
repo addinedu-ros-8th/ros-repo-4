@@ -28,6 +28,7 @@
 
 using namespace std;
 
+using SetState = tangerbot_msgs::srv::SetState;
 using Parking = tangerbot_msgs::action::Parking;
 using GoalHandlerParking = rclcpp_action::ServerGoalHandle<Parking>;
 using DetectedMarker = tangerbot_msgs::msg::DetectedMarker;
@@ -43,6 +44,7 @@ private:
     void person_pose_callbacks(const tangerbot_msgs::msg::RobotPose::SharedPtr msg);
     void detected_marker_callback(const DetectedMarker::SharedPtr msg);
     void state_callbacks();
+    void update_workload();
     
 
     rclcpp_action::GoalResponse parking_handle_goal(
@@ -63,6 +65,7 @@ private:
     int main_status;
     int motion_status;
     float battery;
+    int workload = 0;
 
 
     DetectedMarker detected_marker_msg;
@@ -75,10 +78,11 @@ private:
     rclcpp::Subscription<tangerbot_msgs::msg::RobotPose>::SharedPtr person_pose_subscriber;
     rclcpp::Subscription<DetectedMarker>::SharedPtr detected_marker_sub;
 
-    rclcpp::Service<tangerbot_msgs::srv::SetState>::SharedPtr set_state_server;
+    rclcpp::Service<SetState>::SharedPtr set_state_server;
     
     rclcpp_action::Server<Parking>::SharedPtr parking_server;
     rclcpp::TimerBase::SharedPtr timer_;
+    rclcpp::TimerBase::SharedPtr workload_timer;
     
     
 public:

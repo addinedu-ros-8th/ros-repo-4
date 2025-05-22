@@ -2,6 +2,7 @@ string robot_id
 uint8 main_status
 uint8 motion_status
 float32 battery
+int32 workload
 
 # main_status constants
 uint8 IDLE=0
