@@ -14,13 +14,13 @@
     <!-- <include file="$(find-pkg-share ros2_icm20948)/icm20948_node_launch.py">
     </include> -->
 
-    <node pkg="pinky_bringup" exec="pinky_bringup">
+    <node pkg="tangerbot_bringup" exec="tangerbot_bringup">
         <param name="motor_ratio" value="$(var motor_ratio)"/>
     </node>
 
-    <node pkg="pinky_bringup" exec="camera">
+    <node pkg="tangerbot_bringup" exec="camera">
     </node>
-    <node pkg="pinky_bringup" exec="pinky_battery_publiser">
+    <node pkg="tangerbot_bringup" exec="pinky_battery_publiser">
     </node>
     
 </launch>

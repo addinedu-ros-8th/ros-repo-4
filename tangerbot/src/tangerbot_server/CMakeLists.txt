@@ -95,6 +95,7 @@ install(TARGETS
 
 install(PROGRAMS
   scripts/llm_node.py
+  scripts/wav_to_topic.py
   DESTINATION lib/${PROJECT_NAME}
 )
 
