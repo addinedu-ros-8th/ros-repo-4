@@ -23,11 +23,14 @@ rosidl_generate_interfaces(${PROJECT_NAME}
   "msg/DetectedMarker.msg"
   "srv/HandleCommand.srv"
   "srv/SetFollowMode.srv"
+<<<<<<< HEAD
+=======
 
   "srv/SignUp.srv"
   "srv/SignIn.srv"
 
 
+>>>>>>> dev
   "srv/Speak.srv"
   "srv/HandleRawVoice.srv"
   "srv/SetState.srv"
