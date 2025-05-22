@@ -24,9 +24,13 @@ using PoseStamped = geometry_msgs::msg::PoseStamped;
 using OccupancyGrid = nav_msgs::msg::OccupancyGrid;
 using HandleCommand = tangerbot_msgs::srv::HandleCommand;
 using CallState = tangerbot_msgs::msg::CallState;
+using RobotState = tangerbot_msgs::msg::RobotState;
 using SignUp = tangerbot_msgs::srv::SignUp;
+using DecodedVoice = tangerbot_msgs::msg::DecodedVoice;
+using HandleRawVoice = tangerbot_msgs::srv::HandleRawVoice;
 
 using namespace std::placeholders;
+using namespace std::chrono_literals;
 
 Tangerine::Tangerine(QWidget *parent) :
   QMainWindow(parent),
@@ -37,6 +41,7 @@ Tangerine::Tangerine(QWidget *parent) :
     ui->setupUi(this);
     //ui->stackedWidget->setCurrentIndex(0);
     ui->robot_widget->setCurrentIndex(1);
+    called_robot = true;
 
     /**********************************************
      * * Initialize ROS2 Node
@@ -54,10 +59,14 @@ Tangerine::Tangerine(QWidget *parent) :
     call_state_sub = node_->create_subscription<CallState>(
       "/call_state", 10, std::bind(&Tangerine::call_state_callback, this, _1)
     );
-
+    robot_state_sub = node_->create_subscription<RobotState>(
+      "robot_state", 10, std::bind(&Tangerine::robot_state_callback, this, _1));
     signup_client = node_->create_client<SignUp>("sign_up");
+    handle_raw_voice_client = node_->create_client<HandleRawVoice>("handle_raw_voice");
+
 
     goal_pub_ = node_->create_publisher<PoseStamped>("/goal_pose", 10);
+    decoded_voice_pub = node_->create_publisher<DecodedVoice>("decoded_voice", 10);
 
     /**********************************************
      * * Load the main image for the intro page
@@ -143,8 +152,59 @@ Tangerine::Tangerine(QWidget *parent) :
         } else {
           // None
         }
-      } else 
+      }
+        else 
         ui->robot_widget->setCurrentIndex(2);
+    });
+
+    connect(ui->btn_return, &QPushButton::clicked, this, [=]() {
+      if (!robot_id.empty()) {
+        QMessageBox::StandardButton reply;
+        reply = QMessageBox::question(this, "Cancel", "Are you sure return robot?", QMessageBox::Yes | QMessageBox::No);
+
+        if (reply == QMessageBox::Yes) {
+          auto request = std::make_shared<HandleCommand::Request>();
+          request->user_id = user_id;
+          request->robot_id = robot_id;
+          request->type = HandleCommand::Request::RETURN;
+          RCLCPP_INFO(rclcpp::get_logger("rclcpp"), "service waiting");
+          while (!handle_command_client->wait_for_service(1s)) {
+            if (!rclcpp::ok()) {
+              RCLCPP_ERROR(rclcpp::get_logger("rclcpp"), "Interrupted while waiting for the service. Exiting.");
+              return;
+            }
+            RCLCPP_INFO(rclcpp::get_logger("rclcpp"), "service not available, waiting again...");
+          }
+          auto future_result = handle_command_client->async_send_request(request);
+          auto response = future_result.get();
+          RCLCPP_INFO(rclcpp::get_logger("rclcpp"), "%d", response);
+          
+          RCLCPP_INFO(rclcpp::get_logger("rclcpp"), "Handle command service success!");
+          current_robottab_index = 0;
+          ui->btn_call->setText("Call");
+          ui->btn_call->setStyleSheet(
+            QString("QPushButton {"
+                    "background-color: rgba(42, 175, 223, 255);"
+                    "border:10px;"
+                    "color:black;"
+                    "}"
+
+                    "QPushButton:hover {"
+                    "background-color: rgba(42, 175, 223, 200);"
+                    "}")
+
+          );
+          called_robot = false;
+          robot_id.clear();
+          current_robottab_index = 0;
+          ui->robot_widget->setCurrentIndex(0);
+          
+          
+          
+        } else {
+          // None
+        }
+    }
     });
 
     connect(ui->btn_follow, &QPushButton::clicked, this, std::bind(&Tangerine::request_follwing, this));
@@ -158,6 +218,12 @@ Tangerine::Tangerine(QWidget *parent) :
       ui->robot_widget->setCurrentIndex(current_robottab_index);
     });
     connect(ui->btn_ssettings, &QPushButton::clicked, this, [=]() {ui->stackedWidget->setCurrentIndex(5);});
+
+
+    /**********************************************
+     * * Signals
+    ***********************************************/
+    
 
     // Spin node
     QThread* rosThread = QThread::create([=]() {
@@ -182,8 +248,6 @@ bool Tangerine::get_called_robot() {
   Slots
 *******************************************************/
 void Tangerine::handle_selection(QString section) {
-  using namespace std::chrono_literals;
-
   called_robot = true;
   
   auto request = std::make_shared<HandleCommand::Request>();
@@ -233,6 +297,26 @@ void Tangerine::handle_selection(QString section) {
   }
 }
 
+void Tangerine::process_audio_data(QByteArray audio_data) {
+  auto request = std::make_shared<HandleRawVoice::Request>();
+  request->user_id = user_id;
+  request->data.data = std::vector<uint8_t>(audio_data.begin(), audio_data.end());
+  auto future_result = handle_raw_voice_client->async_send_request(request);
+  auto response = future_result.get();
+
+  if (!response->text.empty()) {
+    QMessageBox::StandardButton reply;
+    reply = QMessageBox::question(this, "Check", "Are you sure this command?", QMessageBox::Yes | QMessageBox::No);
+
+    if (reply == QMessageBox::Yes) {
+      auto msg = DecodedVoice();
+      msg.user_id = user_id;
+      msg.text = response->text;
+      decoded_voice_pub->publish(msg);
+    } 
+  }
+}
+
 /****************************************************** 
   Callback
 *******************************************************/
@@ -242,12 +326,14 @@ void Tangerine::call_state_callback(const CallState::SharedPtr msg) {
   int eta = msg->time_remaining;
   bool success = msg->success;
   bool done = msg->done;
-
+  loading->stop();
   if (success) {
     if (done) {
       total_eta = -1;
       QTimer::singleShot(0, this, [=]() {
           ui->robot_widget->setCurrentIndex(1);
+          robot_id = msg->robot_id;
+          RCLCPP_INFO(node_->get_logger(), "%s is selected", robot_id.c_str());
       });
     } else {
       QTimer::singleShot(0, this, [=]() {
@@ -287,12 +373,23 @@ void Tangerine::call_state_callback(const CallState::SharedPtr msg) {
     }
   } else {
     QTimer::singleShot(0, this, [=]() {
-      current_robottab_index = 1;
+      current_robottab_index = 0;
       ui->robot_widget->setCurrentIndex(current_robottab_index);
     });
     
   }
   
+}
+
+void Tangerine::robot_state_callback(const RobotState::SharedPtr msg) {
+  auto robot_id = msg->robot_id;
+  auto battery = msg->battery;
+  if (robot_id == this->robot_id) {
+    QTimer::singleShot(0, this, [=]() {
+      battery_circular_progressbar->set_percentage(int(battery));
+      battery_widget->set_percentage(int(battery));
+    });
+  }
 }
 
 /****************************************************** 
@@ -382,20 +479,30 @@ void Tangerine::request_follwing() {
       RCLCPP_INFO(rclcpp::get_logger("rclcpp"), "Request Following");
       request->type = HandleCommand::Request::FOLLOWING;
       ui->btn_follow->setText("Stop");
-      auto future_result = handle_command_client->async_send_request(request);
-      auto response = future_result.get();
-      follow_mode = true;
     } else {
       request->type = HandleCommand::Request::STOP;
       ui->btn_follow->setText("Follow");
-      auto future_result = handle_command_client->async_send_request(request);
-      auto response = future_result.get();
-      follow_mode = false;
     }
+
+    while (!handle_command_client->wait_for_service(1s)) {
+      if (!rclcpp::ok()) {
+      RCLCPP_ERROR(rclcpp::get_logger("rclcpp"), "Interrupted while waiting for the service. Exiting.");
+      return;
+      }
+      RCLCPP_INFO(rclcpp::get_logger("rclcpp"), "service not available, waiting again...");
+    }
+
+    auto future_result = handle_command_client->async_send_request(request);
+    auto response = future_result.get();
+
+    follow_mode = !follow_mode;
   });
 }
 
 void Tangerine::start_recording() {
-  RecordingDialog dialog(this);
-  dialog.exec();
+  record_dialog = new RecordingDialog(this);
+  // Process audio data
+  connect(record_dialog, &RecordingDialog::process_audio_data, this, &Tangerine::process_audio_data);
+  record_dialog->exec();
+  record_dialog->deleteLater();
 }

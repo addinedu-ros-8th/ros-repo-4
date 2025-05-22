@@ -1556,7 +1556,7 @@ QPushButton:hover {
                                 </property>
                                 <layout class="QGridLayout" name="gridLayout_25">
                                  <item row="0" column="0">
-                                  <widget class="QPushButton" name="pushButton_2">
+                                  <widget class="QPushButton" name="btn_return">
                                    <property name="sizePolicy">
                                     <sizepolicy hsizetype="Minimum" vsizetype="Expanding">
                                      <horstretch>0</horstretch>

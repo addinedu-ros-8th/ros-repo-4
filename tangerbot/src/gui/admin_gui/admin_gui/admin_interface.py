@@ -79,7 +79,8 @@ class AdminInterface(Node, QMainWindow):
         Node.__init__(self, 'admin_interface_gui')
         
         # UI 파일 로드
-        ui_file = os.path.join(os.path.dirname(__file__), '../ui/admin_interface.ui')
+        pkg_path = get_package_share_directory('admin_gui')
+        ui_file = os.path.join(pkg_path, 'ui', 'admin_interface.ui')
         loadUi(ui_file, self)
 
         
