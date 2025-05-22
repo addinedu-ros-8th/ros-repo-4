@@ -1,0 +1,4 @@
+SUBSYSTEM=="gpio", KERNEL=="gpiochip*", MODE="0666"
+SUBSYSTEM=="spidev", KERNEL=="spidev*", MODE="0666"
+SUBSYSTEM=="i2c-dev", KERNEL=="i2c-*", MODE="0666"
+SUBSYSTEM=="dma_heap", MODE="0666"
