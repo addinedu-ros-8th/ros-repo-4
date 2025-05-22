@@ -10,8 +10,8 @@ find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(rclcpp_action REQUIRED)
 find_package(tangerbot_msgs REQUIRED)
-find_package(rcl_interfaces REQUIRED)
 find_package(OpenCV REQUIRED)
+find_package(rcl_interfaces REQUIRED)
 
 add_executable(tangerbot_manager 
   src/tangerbot_manager.cpp

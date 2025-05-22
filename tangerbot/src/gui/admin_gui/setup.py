@@ -33,6 +33,7 @@ setup(
     version='0.0.0',
     packages=[package_name],
     data_files=[
+        ('share/ament_index/resource_index/packages', ['resource/admin_gui']),
         ('share/' + package_name, ['package.xml']),
         # UI 및 데이터 파일 포함
         ('share/' + package_name + '/ui', ['ui/admin_interface.ui']),
