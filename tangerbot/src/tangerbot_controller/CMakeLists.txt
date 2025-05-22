@@ -9,11 +9,8 @@ endif()
 find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(tangerbot_msgs REQUIRED)
-<<<<<<< HEAD
 find_package(OpenCV REQUIRED)
-=======
 find_package(rcl_interfaces REQUIRED)
->>>>>>> dev
 
 add_executable(tangerbot_manager src/tangerbot_manager.cpp)
 ament_target_dependencies(tangerbot_manager
