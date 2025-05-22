@@ -1,5 +1,5 @@
 # request
-int8 marker_id
+int32 marker_id
 ---
 # result
 bool success
