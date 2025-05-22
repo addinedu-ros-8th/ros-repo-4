@@ -439,7 +439,8 @@ void Brain::move_to_section(const std::shared_ptr<tangerbot_msgs::srv::HandleCom
 
 void Brain::return_to_storage(const std::shared_ptr<tangerbot_msgs::srv::HandleCommand::Request> request)
 {
-    if (robot_states_data_[request->robot_id].workload == 0){
+    workload_ = robot_states_data_[request->robot_id].workload;
+    if (workload_ == 0){
         return;
     }
     bool goal_done = false;
@@ -549,8 +550,6 @@ void Brain::return_to_storage(const std::shared_ptr<tangerbot_msgs::srv::HandleC
         }
     }
 
-    
-    
     return;
 }
 
@@ -559,6 +558,12 @@ void Brain::return_to_storage(const std::shared_ptr<tangerbot_msgs::srv::HandleC
 
 void Brain::return_to_home(const std::shared_ptr<tangerbot_msgs::srv::HandleCommand::Request> request)
 {
+    rclcpp::Rate loop_rate(10);
+    while (workload_){
+        workload_ = robot_states_data_[request->robot_id].workload;
+        loop_rate.sleep();
+    }
+    
     bool goal_done = false;
     RCLCPP_INFO(this->get_logger(), "Returning to Home! ");
     selected_robot_id_=request->robot_id;
@@ -578,7 +583,7 @@ void Brain::return_to_home(const std::shared_ptr<tangerbot_msgs::srv::HandleComm
     }
 
     while(rclcpp::ok() && !goal_done) {
-        rclcpp::Rate loop_rate(10);
+        
         if (!follow_path_client_->wait_for_action_server(std::chrono::seconds(10))){
             RCLCPP_ERROR(this->get_logger(), "Follow Path Action Server not available");
             return;
@@ -592,7 +597,7 @@ void Brain::return_to_home(const std::shared_ptr<tangerbot_msgs::srv::HandleComm
         send_goal_options.result_callback = [&](const auto& result){
             if (result.code==rclcpp_action::ResultCode::SUCCEEDED)
             {                   
-                RCLCPP_INFO(this->get_logger(), "Robot %s reached the %s. Start Parking.", this->selected_robot_id_.c_str(), section_.c_str());
+                RCLCPP_INFO(this->get_logger(), "Robot %s reached the %s. Start Parking.", this->selected_robot_id_.c_str(), (robot_home_map_[selected_robot_id_]).c_str());
                 threadParking_ = std::thread(&Brain::parking, this, selected_robot_id_);
                 threadParking_.detach();
                 
@@ -600,7 +605,7 @@ void Brain::return_to_home(const std::shared_ptr<tangerbot_msgs::srv::HandleComm
             }
             else 
             {
-                RCLCPP_INFO(this->get_logger(), "Robot %s failed to reach the %s.", this->selected_robot_id_.c_str(), section_.c_str());
+                RCLCPP_INFO(this->get_logger(), "Robot %s failed to reach the %s.", this->selected_robot_id_.c_str(), (robot_home_map_[selected_robot_id_]).c_str());
             }
         };
 
@@ -703,8 +708,6 @@ void Brain::handle_command_service_callback(
     geometry_msgs::msg::PoseStamped goal_pose;
     goal_pose = section_poses_[request->data];
     
-    RCLCPP_INFO(this->get_logger(), " check point ");
-
     if (command == request->MOVETOSECTION) {
         std::thread(&Brain::move_to_section, this, request).detach();
     }
@@ -718,13 +721,17 @@ void Brain::handle_command_service_callback(
     }
 
     
-    if (command == request->FOLLOWING && robot_states_data_[request->robot_id].main_status == tangerbot_msgs::msg::RobotState::WORKING) {
+    if ((command == request->FOLLOWING || command == request->STOP) && robot_states_data_[request->robot_id].main_status == tangerbot_msgs::msg::RobotState::WORKING) {
         std::string robot_id = request->robot_id;
 
 
         auto follow_req = std::make_shared<SetFollowMode::Request>();
         follow_req->robot_id = robot_id;
-        follow_req->mode = true;
+
+        if (command == request->FOLLOWING)
+            follow_req->mode = true;
+        else
+            follow_req->mode = false;
 
         // 1. vision_set_follow_mode
         RCLCPP_INFO(this->get_logger(), "Calling vision_set_follow_mode for robot %s", robot_id.c_str());
@@ -756,14 +763,6 @@ void Brain::handle_command_service_callback(
         RCLCPP_INFO(this->get_logger(), "Following mode activated for robot: %s", robot_id.c_str());
         response->success = true;
 
-    }
-
-    if (command == request->STOP){
-        RCLCPP_INFO(this->get_logger(), "Stopping Robot %s", request->robot_id.c_str());
-        auto cmd_vel = geometry_msgs::msg::Twist();
-        cmd_vel.linear.x = 0.0;
-        cmd_vel.angular.z = 0.0;
-        cmd_vel_publisher_->publish(cmd_vel);
     }
 
     response->success = true;
