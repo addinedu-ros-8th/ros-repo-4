@@ -204,10 +204,10 @@ private:
         // params.P1 = 35;
         // params.P2 = 110;
         params.P1 = 20;
-        params.P2 = 140;
+        params.P2 = 130;
         // params.uniqueness = 0.90f;
-        params.uniqueness = 1.0f;
-        params.LR_max_diff = 5;
+        params.uniqueness = 2.0f;
+        params.LR_max_diff = 4;
         params.census_type = sgm::CensusType::SYMMETRIC_CENSUS_9x7;
 
         sgm_ = std::make_unique<sgm::StereoSGM>(
@@ -278,7 +278,7 @@ private:
         // CUDA Bilateral Filter
         cv::cuda::GpuMat g_disp(disp_);
         cv::cuda::GpuMat g_filt;
-        cv::cuda::bilateralFilter(g_disp, g_filt, 7, 15.0, 15.0);
+        cv::cuda::bilateralFilter(g_disp, g_filt, 9, 15.0, 15.0);
         g_filt.download(disp_);
         
 
@@ -289,8 +289,8 @@ private:
                     cv::format("SGM %.1f ms  FPS %.1f", exec_ms, 1000.0/exec_ms),
                     {30,30}, cv::FONT_HERSHEY_SIMPLEX, 0.7, {255, 255, 255}, 1);
 
-        cv::imshow("Left", gray_rect_l_);
-        cv::imshow("Right", gray_rect_r_);
+        //cv::imshow("Left", gray_rect_l_);
+        //cv::imshow("Right", gray_rect_r_);
         cv::imshow("Disparity", disp_color_);
         cv::waitKey(1);
     }
