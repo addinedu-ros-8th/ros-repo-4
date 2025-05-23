@@ -3,6 +3,7 @@ import rclpy
 from rclpy.node import Node
 from geometry_msgs.msg import PointStamped
 from tangerbot_msgs.srv import SetFollowMode
+from ament_index_python.packages import get_package_share_directory
 
 import cv2
 import torch
@@ -15,13 +16,14 @@ import posix_ipc
 import mmap
 import struct
 import time
+import os
 
 class HumanPose(Node):
     def __init__(self):
         super().__init__('human_pose')
         self.get_logger().info("Initializing HumanPose node")
         try:
-            self.shm = posix_ipc.SharedMemory("/stereo_shm", flags=0)
+            self.shm = posix_ipc.SharedMemory("/stereo_shm", flags = 0)
             self.get_logger().info("Shared memory opened successfully")
         except posix_ipc.ExistentialError as e:
             self.get_logger().error(f"Failed to open shared memory: {e}")
@@ -29,7 +31,7 @@ class HumanPose(Node):
 
         self.active_ = False
         self.robot_idx = 0
-        self.camera_id = 1  # 왼쪽 카메라
+        self.camera_id = 0  # 왼쪽 카메라
 
         self.pub = self.create_publisher(PointStamped, 'object_pixel', 10)
         self.srv = self.create_service(SetFollowMode, 'set_human_pose_follow_mode', self.handle_set_mode)
@@ -38,15 +40,24 @@ class HumanPose(Node):
         self.publish_timer = self.create_timer(timer_period, self.publish_pixel)
         self.display_timer = self.create_timer(timer_period, self.display_image)
 
+        self.calib_file = os.path.join(
+            get_package_share_directory("vision_server"),
+            "config",
+            "calibration_data.yml"
+        )
+
         # Deep Learning 초기화
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.get_logger().info(f"Using device: {self.device}")
         self.model = YOLO("yolov8n-seg.pt").to(self.device)
-        self.tracker = DeepSort(max_age = 50, n_init = 2, max_cosine_distance = 0.3, nn_budget = 100)
+        self.tracker = DeepSort(max_age = 100, n_init = 5, max_cosine_distance = 0.3, nn_budget = 100)
         self.TARGET_ID = None
 
+        # 왜곡 보정 파라미터
+        self.map1x, self.map1y = self.load_left_camera_calibration()
+
         # 공유 메모리 초기화
-        self.shm = posix_ipc.SharedMemory("/stereo_shm", flags=0)
+        self.shm = posix_ipc.SharedMemory("/stereo_shm", flags = 0)
         self.seg_size = 9 * (4 + 4 + 56 + (1 << 20))
         self.mapfile = mmap.mmap(self.shm.fd, self.seg_size, access = mmap.ACCESS_READ)
         self.shm.close_fd()
@@ -66,7 +77,7 @@ class HumanPose(Node):
         self.fail_count = 0
         self.max_fails = 3
         self.last_detection_time = time.time()  # 마지막 유효 디텍션 시간
-        self.no_detection_timeout = 5.0  # 5초 타임아웃
+        self.no_detection_timeout = 2.0  # 3초 타임아웃
 
     def handle_set_mode(self, request, response):
         # "robot1" → 인덱스 0
@@ -76,6 +87,23 @@ class HumanPose(Node):
         response.success = True
         self.get_logger().warn("read")
         return response
+
+    # 이미지 왜곡 보정 캘리브레이션 파일 업로드
+    def load_left_camera_calibration(self):
+        fs = cv2.FileStorage(self.calib_file, cv2.FILE_STORAGE_READ)
+        if not fs.isOpened():
+            raise RuntimeError(f"Cannot open calibration file: {self.calib_file}")
+
+        K1 = fs.getNode("mtx_l").mat()
+        D1 = fs.getNode("dist_l").mat()
+        fs.release()
+
+        cam_size = (640, 480)
+        new_K1, _ = cv2.getOptimalNewCameraMatrix(K1, D1, cam_size, 0)
+        map1x, map1y = cv2.initUndistortRectifyMap(
+            K1, D1, None, new_K1, cam_size, cv2.CV_32FC1
+        )
+        return map1x, map1y
 
     def get_center_distance(self, x1, y1, x2, y2, img_w, img_h):
         box_cx = (x1 + x2) / 2
@@ -116,6 +144,8 @@ class HumanPose(Node):
         if img is None:
             self.get_logger().warn("JPEG decoding failed")
             return None, None
+
+        img = cv2.remap(img, self.map1x, self.map1y, cv2.INTER_LINEAR)
 
         return img, frame_id_1
 
@@ -177,7 +207,7 @@ class HumanPose(Node):
 
         index_to_id = {}
         for yolo_idx, track_idx in zip(r, c):
-            if iou_matrix[yolo_idx][track_idx] > 0.6:
+            if iou_matrix[yolo_idx][track_idx] > 0.2:
                 index_to_id[yolo_idx] = track_ids[track_idx]
 
         if self.TARGET_ID is None and len(index_to_id) > 0:
@@ -196,7 +226,7 @@ class HumanPose(Node):
                 M = cv2.moments(binary_mask)
                 if M["m00"] != 0:
                     u = int(M["m10"] / M["m00"])
-                    v = int(M["m01"] / M["m00"]) - 15  # y 값을 15픽셀 위로 조정
+                    v = int(M["m01"] / M["m00"]) - 100  # y 값을 15픽셀 위로 조정
                     if v < 0:
                         v = 0  # 이미지 범위 내로
                     self.get_logger().info(f"Segmentation center: (u={u}, v={v}) (original v={int(M['m01']/M['m00'])})")
@@ -294,7 +324,7 @@ class HumanPose(Node):
 
                 index_to_id = {}
                 for yolo_idx, track_idx in zip(r, c):
-                    if iou_matrix[yolo_idx][track_idx] > 0.6:
+                    if iou_matrix[yolo_idx][track_idx] > 0.2:
                         index_to_id[yolo_idx] = track_ids[track_idx]
 
                 if masks is not None:

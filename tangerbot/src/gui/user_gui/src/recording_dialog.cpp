@@ -61,6 +61,12 @@ RecordingDialog::RecordingDialog(QWidget *parent) : QDialog(parent), audio_input
     audio_input->start(audio_file);
 }
 
+RecordingDialog::~RecordingDialog()
+{
+    delete audio_input;
+    delete audio_file;
+}
+
 void RecordingDialog::write_wav_header() {
     QByteArray header;
     QDataStream out(&header, QIODevice::WriteOnly);
@@ -107,17 +113,14 @@ void RecordingDialog::stop_recording()
         }
         QByteArray audio_data = audio_file->readAll();
         audio_file->close();
-        // auto msg = tangerbot_msgs::msg::AudioData();
-        // msg.filename = "output.wav";
-        // msg.data = std::vector<uint8_t>(audioData.begin(), audioData.end());
-        // publisher_->publish(msg);
+        
+        emit process_audio_data(audio_data);
     }
 }
 
-RecordingDialog::~RecordingDialog()
-{
-    delete audio_input;
-    delete audio_file;
+void RecordingDialog::cancel_recording() {
+    audio_input->stop();
+    audio_file->close();
 }
 
 

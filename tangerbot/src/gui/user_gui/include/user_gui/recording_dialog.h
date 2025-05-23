@@ -7,9 +7,13 @@
 #include <QLabel>
 
 class RecordingDialog : public QDialog {
+    Q_OBJECT
 public:
     explicit RecordingDialog(QWidget *parent = nullptr);
     ~RecordingDialog();
+
+signals:
+    void process_audio_data(QByteArray audio_data);
 
 private slots:
     void write_wav_header();

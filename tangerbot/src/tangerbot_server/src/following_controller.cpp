@@ -3,6 +3,7 @@
 #include <cmath>
 #include <deque>
 #include <numeric>
+#include <fstream>
 
 #include "rclcpp/rclcpp.hpp"
 #include <geometry_msgs/msg/point_stamped.hpp>
@@ -33,24 +34,20 @@ private:
 class VelocityController : public rclcpp::Node {
 public:
     VelocityController() : Node("velocity_controller") {
-        declare_parameter<double>("target_depth", 0.8);
-        declare_parameter<double>("k_p", 0.8);
-        declare_parameter<double>("k_i", 0.1);
-        declare_parameter<double>("k_d", 0.3);
+        declare_parameter<double>("target_depth", 0.2);
+        declare_parameter<double>("k_p", 1.2);
+        declare_parameter<double>("k_i", 0.3);
+        declare_parameter<double>("k_d", 0.5);
         declare_parameter<double>("k_a", 2.0);
         declare_parameter<double>("k_i_a", 0.1);
         declare_parameter<double>("k_d_a", 0.3);
-
-        // declare_parameter<double>("max_linear", 0.3);
-        // declare_parameter<double>("max_angular", 2.0);
-        declare_parameter<double>("max_linear", 1.0);
-        declare_parameter<double>("max_angular", 3.0);
-
+        declare_parameter<double>("max_linear", 0.3);
+        declare_parameter<double>("max_angular", 1.0);
         declare_parameter<double>("min_depth", 0.2);
         declare_parameter<double>("fu", 467.16504728177745);
         declare_parameter<double>("u0", 313.29207046554541);
-        declare_parameter<double>("tolerance_x", 2.5);
-        declare_parameter<double>("depth_tolerance", 0.05);
+        declare_parameter<double>("tolerance_x", 5.0);
+        declare_parameter<double>("depth_tolerance", 0.04);
 
         get_parameter("depth_tolerance", depth_tolerance_);
         get_parameter("target_depth", target_depth_);
@@ -75,7 +72,8 @@ public:
             std::bind(&VelocityController::handle_set_mode, this, std::placeholders::_1, std::placeholders::_2)
         );
 
-        object_sub_ = create_subscription<geometry_msgs::msg::PointStamped>("transformed_point", 10, std::bind(&VelocityController::object_callback, this, std::placeholders::_1));
+        object_sub_ = create_subscription<geometry_msgs::msg::PointStamped>(
+            "transformed_point", 10, std::bind(&VelocityController::object_callback, this, std::placeholders::_1));
         cmd_vel_pub_ = create_publisher<geometry_msgs::msg::Twist>("cmd_vel", 10);
 
         timer_ = create_wall_timer(200ms, std::bind(&VelocityController::check_timeout, this));
@@ -83,6 +81,11 @@ public:
         last_msg_time_ = this->now();
         last_linear_x_ = 0.0;
         last_angular_z_ = 0.0;
+
+        log_file_.open("./pid_log.csv");
+        log_file_ << "time,error_z,error_angle,linear_x,angular_z\n";
+
+        start_time_ = this->now();
 
         RCLCPP_INFO(this->get_logger(), "Target depth set to: %.2f meters", target_depth_);
     }
@@ -102,57 +105,98 @@ private:
         );
     }
 
+    void smooth_stop() {
+        const double damping_factor = 0.6;
+        const double min_velocity_threshold = 0.01;
+
+        last_linear_x_ *= damping_factor;
+        last_angular_z_ *= damping_factor;
+
+        if (std::abs(last_linear_x_) < min_velocity_threshold &&
+            std::abs(last_angular_z_) < min_velocity_threshold) {
+            last_linear_x_ = 0.0;
+            last_angular_z_ = 0.0;
+        }
+
+        publish_cmd_vel(last_linear_x_, last_angular_z_);
+        RCLCPP_INFO(this->get_logger(), "Smoothing stop: linear_x=%.2f, angular_z=%.2f",
+                    last_linear_x_, last_angular_z_);
+    }
+
     void object_callback(const geometry_msgs::msg::PointStamped::SharedPtr msg) {
-        if (!active_) return; 
-        
+        if (!active_) {
+            smooth_stop();
+            return;
+        }
+
         double x = msg->point.x;
         double y = msg->point.y;
         double z = msg->point.z;
 
-        // x, y, z 검증
-        if (x < 0.0 || x >= 640.0 || y < 0.0 || y >= 480.0 || z <= 0.0) {
-            RCLCPP_WARN(this->get_logger(), "Invalid data: x=%.2f, y=%.2f, z=%.2f, stopping", x, y, z);
-            publish_cmd_vel(0.0, 0.0);
-            return;
+        // 픽셀 좌표 유효성 검사
+        bool valid_pixels = (x >= 0.0 && x < 640.0 && y >= 0.0 && y < 480.0);
+        bool valid_depth = (z > 0.0);
+
+        // 각속도 계산 (픽셀 좌표가 유효할 때만)
+        double angular_z = 0.0;
+        double pixel_offset = 0.0;
+        double error_angle = 0.0;
+        if (valid_pixels) {
+            pixel_offset = x - u0_;
+            const double left_gain = 1.4;
+            const double right_gain = 1.0;
+
+            if (pixel_offset < 0) {
+                pixel_offset *= left_gain;
+            } else {
+                pixel_offset *= right_gain;
+            }
+
+            error_angle = std::atan2(pixel_offset, fu_);
+            angular_z = -pid_x_->compute(error_angle, dt_) * 1.5;
+            if (std::abs(pixel_offset) < tolerance_x_) {
+                angular_z = 0.0;
+            }
+            angular_z = std::clamp(angular_z, -max_angular_, max_angular_);
+        } else {
+            RCLCPP_WARN(this->get_logger(), "Invalid pixel data: x=%.2f, y=%.2f, slowing down angular", x, y);
+            angular_z = last_angular_z_ * 0.6; // 부드럽게 감속
+            if (std::abs(angular_z) < 0.01) {
+                angular_z = 0.0;
+            }
         }
 
-        // 깊이 이동 평균
-        z_history_.push_back(z);
-        if (z_history_.size() > z_history_size_) z_history_.pop_front();
-        double z_avg = std::accumulate(z_history_.begin(), z_history_.end(), 0.0) / z_history_.size();
+        // 선속도 계산 (깊이 데이터가 유효할 때만)
+        double linear_x = 0.0;
+        double z_avg = 0.0;
+        double error_z = 0.0;
+        if (valid_depth && valid_pixels) {
+            z_history_.push_back(z);
+            if (z_history_.size() > z_history_size_) z_history_.pop_front();
+            z_avg = std::accumulate(z_history_.begin(), z_history_.end(), 0.0) / z_history_.size();
 
-        // 너무 가까우면 정지
-        if (z_avg < min_depth_) {
-            RCLCPP_WARN(this->get_logger(), "Too close to object (z_avg=%.2f), stopping", z_avg);
-            publish_cmd_vel(0.0, 0.0);
-            return;
+            if (z_avg < min_depth_) {
+                RCLCPP_WARN(this->get_logger(), "Too close to object (z_avg=%.2f), stopping linear", z_avg);
+                linear_x = 0.0;
+                pid_z_->compute(0.0, dt_);
+            } else {
+                error_z = z_avg - target_depth_;
+                if (std::abs(error_z) < depth_tolerance_) {
+                    RCLCPP_INFO(this->get_logger(), "Reached target depth (z_avg=%.2f, target=%.2f), stopping linear", z_avg, target_depth_);
+                    linear_x = 0.0;
+                    pid_z_->compute(0.0, dt_);
+                } else {
+                    linear_x = pid_z_->compute(error_z, dt_);
+                    linear_x = std::clamp(linear_x, -max_linear_, max_linear_);
+                }
+            }
+        } else {
+            RCLCPP_WARN(this->get_logger(), "Invalid depth data: z=%.2f, stopping linear", z);
+            linear_x = 0.0;
+            pid_z_->compute(0.0, dt_);
         }
 
-        // 타겟 거리 허용 오차 내에 있으면 정지
-        double error_z = z_avg - target_depth_;
-        if (std::abs(error_z) < depth_tolerance_) {
-            RCLCPP_INFO(this->get_logger(), "Reached target depth (z_avg=%.2f, target=%.2f), stopping", z_avg, target_depth_);
-            publish_cmd_vel(0.0, 0.0);
-            pid_z_->compute(0.0, dt_); // 적분 항 리셋
-            return;
-        }
-
-        // PID 제어 - 선속도
-        double linear_x = pid_z_->compute(error_z, dt_);
-
-        // PID 제어 - 각속도
-        double pixel_offset = x - u0_;
-        double error_angle = std::atan2(pixel_offset, fu_);
-        double angular_z = -pid_x_->compute(error_angle, dt_) * 1.5;
-        if (std::abs(pixel_offset) < tolerance_x_) {
-            angular_z = 0.0;
-        }
-
-        // 속도 제한
-        linear_x = std::clamp(linear_x, -max_linear_, max_linear_);
-        angular_z = std::clamp(angular_z, -max_angular_, max_angular_);
-
-        // DEBUG
+        // 로그 출력
         RCLCPP_INFO(this->get_logger(),
             "x=%.2f y=%.2f z=%.2f z_avg=%.2f error_z=%.2f pixel_offset=%.2f error_angle=%.2f linear_x=%.2f angular_z=%.2f",
             x, y, z, z_avg, error_z, pixel_offset, error_angle, linear_x, angular_z);
@@ -164,19 +208,28 @@ private:
 
         // cmd_vel 퍼블리시
         publish_cmd_vel(linear_x, angular_z);
+
+        double time_since_start = (this->now() - start_time_).seconds();
+        log_file_ << time_since_start << ","
+                  << error_z << ","
+                  << error_angle << ","
+                  << linear_x << ","
+                  << angular_z << "\n";
     }
 
     void check_timeout() {
-        if (!active_) return; 
-        
+        if (!active_) {
+            smooth_stop();
+            return;
+        }
+
         auto now = this->now();
         auto elapsed = (now - last_msg_time_).seconds();
         if (elapsed > 0.2) {
-            RCLCPP_WARN(this->get_logger(), "No valid data for %.2f seconds, stopping", elapsed);
-            last_linear_x_ *= 0.8;
-            last_angular_z_ *= 0.8;
-            if (std::abs(last_linear_x_) < 0.01 && std::abs(last_angular_z_) < 0.01) {
-                last_linear_x_ = 0.0;
+            RCLCPP_WARN(this->get_logger(), "No valid data for %.2f seconds, slowing down", elapsed);
+            last_linear_x_ = 0.0; // 선속도는 즉시 0
+            last_angular_z_ *= 0.6; // 각속도는 부드럽게 감속
+            if (std::abs(last_angular_z_) < 0.01) {
                 last_angular_z_ = 0.0;
             }
             publish_cmd_vel(last_linear_x_, last_angular_z_);
@@ -221,6 +274,9 @@ private:
 
     bool active_ = false;
     std::string robot_id_;
+    std::ofstream log_file_;
+
+    rclcpp::Time start_time_;
 };
 
 int main(int argc, char** argv) {
@@ -235,3 +291,4 @@ int main(int argc, char** argv) {
     
     return 0;
 }
+

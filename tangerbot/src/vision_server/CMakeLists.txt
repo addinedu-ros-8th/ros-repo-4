@@ -131,6 +131,7 @@ target_include_directories(picam_receiver PRIVATE
 install(PROGRAMS
   scripts/gesture_node.py
   scripts/human_pose.py
+  scripts/gesture_interpreter_node.py
   DESTINATION lib/${PROJECT_NAME}
 )
 # ----------- 타겟 설치 (모두 조건부 처리) ----------

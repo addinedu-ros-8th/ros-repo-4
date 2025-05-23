@@ -22,6 +22,7 @@ public:
 		// 파라미터 선언/획득
 		declare_parameter<int>("port", 14555);
 		port_ = this->get_parameter("port").as_int();
+		RCLCPP_INFO(this->get_logger(), "Listening on UDP port %d", port_);
 
 		// shared memory 열기
 		shm_ptr_ = shm::open(true);
@@ -152,12 +153,12 @@ private:
 						cv::imshow("img2", img);
 						cv::waitKey(1);
 					}
-						
 					if (hdr->camera_id == 2) {
 						cv::imshow("img3", img);
 						cv::waitKey(1);
 					}
 					*/
+					
 
 	                Slot& slot = shm_ptr_->cam[hdr->robot_id - 1][int(hdr->camera_id)];
 	                if (encoded.size() > MAX_IMG) {
