@@ -41,8 +41,8 @@ public:
         declare_parameter<double>("k_a", 2.0);
         declare_parameter<double>("k_i_a", 0.1);
         declare_parameter<double>("k_d_a", 0.3);
-        declare_parameter<double>("max_linear", 0.6);
-        declare_parameter<double>("max_angular", 2.8);
+        declare_parameter<double>("max_linear", 0.3);
+        declare_parameter<double>("max_angular", 1.0);
         declare_parameter<double>("min_depth", 0.2);
         declare_parameter<double>("fu", 467.16504728177745);
         declare_parameter<double>("u0", 313.29207046554541);
@@ -283,11 +283,11 @@ int main(int argc, char** argv) {
     rclcpp::init(argc, argv);
     try {
         auto node = std::make_shared<VelocityController>();
-        rclpy::spin(node);
+        rclcpp::spin(node);
     } catch (const std::exception& e) {
         std::cerr << "Fatal: " << e.what() << std::endl;
     }
-    rclpy::shutdown();
+    rclcpp::shutdown();
     
     return 0;
 }
