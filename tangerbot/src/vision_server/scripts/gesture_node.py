@@ -88,9 +88,9 @@ class GestureNode(Node):
         thumb_folded = abs(thumb_tip.x - thumb_cmc.x) < 0.05
 
         if all(fingers_up) and not thumb_folded:
-            return 2  # Palm -> COME
+            return 1  # Palm -> COME
         if sum(fingers_up) <= 1 and thumb_folded:
-            return 1  # Fist -> STOP
+            return 2  # Fist -> STOP
         return -1  # UNKNOWN
 
     def process_frame(self):
@@ -129,8 +129,8 @@ class GestureNode(Node):
 
         # 디버깅 시각화
         gesture_labels = {
-            2: "COME",
-            1: "STOP",
+            1: "COME",
+            2: "STOP",
             -1: "UNKNOWN"
         }
         gesture_text = gesture_labels.get(gesture, "❓ UNKNOWN")

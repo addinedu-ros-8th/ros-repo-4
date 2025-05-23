@@ -153,12 +153,12 @@ private:
 						cv::imshow("img2", img);
 						cv::waitKey(1);
 					}
-						
 					if (hdr->camera_id == 2) {
 						cv::imshow("img3", img);
 						cv::waitKey(1);
 					}
 					*/
+					
 
 	                Slot& slot = shm_ptr_->cam[hdr->robot_id - 1][int(hdr->camera_id)];
 	                if (encoded.size() > MAX_IMG) {
