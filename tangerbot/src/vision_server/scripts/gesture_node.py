@@ -121,7 +121,7 @@ class GestureNode(Node):
         if gesture != -1:
             msg = Gesture()
             msg.robot_id = self.robot_id
-            msg.gesture = gesture  # 0: COME, 1: STOP, 2: BACK
+            msg.gesture = gesture  # 1: COME, 2: STOP
             msg.point = point
 
             self.publisher_.publish(msg)

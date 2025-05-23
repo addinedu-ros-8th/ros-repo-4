@@ -56,10 +56,10 @@ Brain::Brain() : Node("brain") {
     call_state_publisher_ = this->create_publisher<tangerbot_msgs::msg::CallState>("call_state", 10);
 
     //timer
-    timer_ = this->create_wall_timer(
-        std::chrono::seconds(1),  // Call every 500 milliseconds
-        std::bind(&Brain::timer_callback, this)
-    );
+    // timer_ = this->create_wall_timer(
+    //     std::chrono::seconds(1),  // Call every 500 milliseconds
+    //     std::bind(&Brain::timer_callback, this)
+    // );
 
     //connect database
     db_driver_ = sql::mysql::get_mysql_driver_instance();
@@ -115,11 +115,11 @@ Brain::~Brain(){
 }
 
 
-void Brain::timer_callback() {
-    for (const auto& [robot_id, state] : robot_states_data_) {
-        RCLCPP_INFO(this->get_logger(), "Robot %s status: %d", robot_id.c_str(), state.main_status);
-    }
-}
+// void Brain::timer_callback() {
+//     for (const auto& [robot_id, state] : robot_states_data_) {
+//         RCLCPP_INFO(this->get_logger(), "Robot %s status: %d", robot_id.c_str(), state.main_status);
+//     }
+// }
 
 void Brain::signup_callback(const std::shared_ptr<tangerbot_msgs::srv::SignUp::Request> request,
     const std::shared_ptr<tangerbot_msgs::srv::SignUp::Response> response)
