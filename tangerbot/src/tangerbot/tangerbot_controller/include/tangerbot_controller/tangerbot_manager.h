@@ -61,7 +61,8 @@ private:
     void publish_robot_state();
 
 
-    string robot_id;
+    string robot_id = "robot1";
+    string ns;
     int main_status;
     int motion_status;
     float battery;

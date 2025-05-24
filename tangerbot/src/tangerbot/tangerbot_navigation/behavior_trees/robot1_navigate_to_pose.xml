@@ -1,0 +1,14 @@
+<root BTCPP_format="4" main_tree_to_execute="MainTree">
+  <BehaviorTree ID="MainTree">
+    <Fallback name="ChooseNavMode">
+      <Sequence name="NavigateToPose">
+        <ComputePathToPose goal="{goal}" path="{path}" planner_id="GridBased" server_name="/robot1/compute_path_to_pose"/>
+        <FollowPath path="{path}" controller_id="FollowPath" server_name="/robot1/follow_path"/>
+      </Sequence>
+      <Sequence name="NavigateThroughPosesSequence">
+          <ComputePathThroughPoses goals="{goals}" path="{path}" planner_id="GridBased" server_name="/robot1/compute_path_through_poses"/>
+          <FollowPath path="{path}" controller_id="FollowPath" server_name="/robot1/follow_path"/>
+      </Sequence>
+    </Fallback>
+  </BehaviorTree>
+</root>
