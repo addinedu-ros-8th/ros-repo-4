@@ -18,7 +18,8 @@
                        'waypoint_follower',
                        'velocity_smoother']"/>
     
-    <load_composable_node target="$(var container_name)" if="$(var use_composition)">    
+    <load_composable_node target="$(var container_name)" if="$(var use_composition)">
+         
         <composable_node pkg="nav2_controller" plugin="nav2_controller::ControllerServer" name="controller_server">            
             <param from="$(var params_file)"/>
             <param name="use_sim_time" value="$(var use_sim_time)"/>

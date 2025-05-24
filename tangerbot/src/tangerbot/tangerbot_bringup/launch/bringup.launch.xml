@@ -3,6 +3,7 @@
 <launch>
     <arg name="use_sim_time" default="False"/>
     <arg name="motor_ratio" default="1.0"/>
+    <arg name='namespace' default='robot1'/>
 
     <include file="$(find-pkg-share pinky_description)/launch/upload.launch.xml">
         <arg name="use_sim_time" value="$(var use_sim_time)"/>
@@ -19,6 +20,7 @@
     </node>
 
     <node pkg="tangerbot_bringup" exec="camera">
+        <param name="namespace" value="$(var namespace)"/>
     </node>
     <node pkg="tangerbot_bringup" exec="pinky_battery_publiser">
     </node>
