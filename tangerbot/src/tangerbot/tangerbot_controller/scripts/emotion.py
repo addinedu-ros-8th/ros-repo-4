@@ -12,7 +12,7 @@ class PinkyEmotion(Node):
     def __init__(self):
         super().__init__('emotion')
 
-        self.emotion_path = os.path.join(get_package_share_directory('emotion'), 'emotion')
+        self.emotion_path = os.path.join(get_package_share_directory('tangerbot_controller'), 'emotion')
         self.emotion_service = self.create_service(Emotion, 'set_emotion', self.lcd_callback)
 
         self.lcd = LCD()

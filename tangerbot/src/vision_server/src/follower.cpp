@@ -70,10 +70,6 @@ public:
 
         // depthmap 생성
         timer_ = create_wall_timer(30ms, std::bind(&Follower::processOnce, this));
-
-        // 테스트
-        //robot_id_ = 0;
-        //active_ = true;
     }
 
     ~Follower() override {
@@ -90,9 +86,7 @@ private:
         robot_id_--;
         active_ = req->mode;        
         res->success = true;
-        RCLCPP_INFO(get_logger(),
-          "[Follower] robot %u %s", robot_id_, active_ ? "ENABLED" : "DISABLED"
-        );
+        RCLCPP_INFO(get_logger(), "[Follower] robot %u %s", robot_id_, active_ ? "ENABLED" : "DISABLED");
         return;
     }
 
@@ -114,23 +108,49 @@ private:
         // invalid (x, y)
         if (x < 0 || x >= cam_size_.width || y < 0 || y >= cam_size_.height) {
             RCLCPP_WARN(this->get_logger(), "Point (x: %d, y: %d) is out of image bounds", x, y);
-            return; // 퍼블리시 중단
+            return; 
         }
 
-        float disparity;
-        if (disp_.type() == CV_8U) {
-            disparity = static_cast<float>(disp_.at<uint8_t>(y, x));
+        int cnt = 0;
+        float disparity = 0.0f;
+        const int dy[] = {0, -1, 0, 1, 0, 1, -1, 1, -1, 0, 2, -2, 0, 1, 2, -1, 2};
+        const int dx[] = {0, 0, 1, 0, -1, 1, -1, -1, 1, 2, 0, 0, -2, 2, 1, 2, -1};
+
+        if (disp_.type() == CV_8U) { 
+            for (int i = 0; i < 17; i++) {
+                int ny = y + dy[i];
+                int nx = x + dx[i];
+                if (ny < 0 || nx < 0 || ny >= cam_size_.height || nx >= cam_size_.width) continue;
+                uint8_t d = disp_.at<uint8_t>(ny, nx);
+                if (d == invalid_disp_ || d <= 0) continue;
+                disparity += static_cast<float>(d);
+                cnt++;
+            }
         } else if (disp_.type() == CV_16U) {
-            disparity = static_cast<float>(disp_.at<uint16_t>(y, x));
+            for (int i = 0; i < 17; i++) {
+                int ny = y + dy[i];
+                int nx = x + dx[i];
+                if (ny < 0 || nx < 0 || ny >= cam_size_.height || nx >= cam_size_.width) continue;
+                uint16_t d = disp_.at<uint16_t>(ny, nx);
+                if (d == invalid_disp_ || d <= 0) continue;
+                disparity += static_cast<float>(d);
+                cnt++;
+            }
         } else {
             RCLCPP_ERROR(this->get_logger(), "Unsupported disparity map type");
             return; // 퍼블리시 중단
         }
+        if (cnt == 0) {
+            RCLCPP_WARN(this->get_logger(), "No valid disparities around (x: %d, y: %d)", x, y);
+            return;
+        }
+
+        disparity /= static_cast<float>(cnt);
 
         // Invalid disparity
         if (disparity == invalid_disp_ || disparity <= 0) {
             RCLCPP_WARN(this->get_logger(), "Invalid disparity at (x: %d, y: %d): %.2f", x, y, disparity);
-            return; // 퍼블리시 중단
+            return;
         }
 
         // z = (f * b) / d
@@ -179,10 +199,13 @@ private:
         const int height = cam_size_.height;
 
         sgm::StereoSGM::Parameters params;
-        params.P1 = 35;
-        params.P2 = 110;
-        params.uniqueness = 0.90f;
-        params.LR_max_diff = 1;
+        // params.P1 = 35;
+        // params.P2 = 110;
+        params.P1 = 20;
+        params.P2 = 130;
+        // params.uniqueness = 0.90f;
+        params.uniqueness = 2.0f;
+        params.LR_max_diff = 4;
         params.census_type = sgm::CensusType::SYMMETRIC_CENSUS_9x7;
 
         sgm_ = std::make_unique<sgm::StereoSGM>(
@@ -239,20 +262,33 @@ private:
         auto t1 = std::chrono::steady_clock::now();
         double exec_ms = std::chrono::duration<double, std::milli>(t1 - t0).count();
 
-        // 4) Download disparity
+        // Download disparity
         d_disp_->download(disp_.data);
 
-        // 5) disparity → float32
-        disp_.convertTo(disp32_, CV_32F, 1.0);
 
-        // 6) 시각화
+        
+        // Speckle 제거
+        cv::Mat tmp_disp;
+        disp_.convertTo(tmp_disp, CV_16SC1);  // filterSpeckles는 이 타입 필요
+        cv::filterSpeckles(tmp_disp, invalid_disp_, 150, 2.0);
+        tmp_disp.convertTo(disp_, disp_.type());  // 다시 disp_로 저장 (CV_16U 또는 CV_8U)
+
+        // CUDA Bilateral Filter
+        cv::cuda::GpuMat g_disp(disp_);
+        cv::cuda::GpuMat g_filt;
+        cv::cuda::bilateralFilter(g_disp, g_filt, 9, 15.0, 15.0);
+        g_filt.download(disp_);
+        
+
+
+        // 시각화
         colorize_disparity(disp_, disp_color_, 128, disp_ == invalid_disp_);
         cv::putText(disp_color_,
                     cv::format("SGM %.1f ms  FPS %.1f", exec_ms, 1000.0/exec_ms),
                     {30,30}, cv::FONT_HERSHEY_SIMPLEX, 0.7, {255, 255, 255}, 1);
 
-        cv::imshow("Left", gray_rect_l_);
-        cv::imshow("Right", gray_rect_r_);
+        //cv::imshow("Left", gray_rect_l_);
+        //cv::imshow("Right", gray_rect_r_);
         cv::imshow("Disparity", disp_color_);
         cv::waitKey(1);
     }
@@ -275,7 +311,7 @@ private:
     cv::Mat gray_rect_l_, gray_rect_r_;
     cv::Mat disp_, disp32_, disp_color_;
 
-    Segment* shm_seg_;
+    Segment *shm_seg_;
 
     rclcpp::Service<tangerbot_msgs::srv::SetFollowMode>::SharedPtr service_;
     bool active_;

@@ -79,7 +79,8 @@ class AdminInterface(Node, QMainWindow):
         Node.__init__(self, 'admin_interface_gui')
         
         # UI 파일 로드
-        ui_file = os.path.join(os.path.dirname(__file__), '../ui/admin_interface.ui')
+        pkg_path = get_package_share_directory('admin_gui')
+        ui_file = os.path.join(pkg_path, 'ui', 'admin_interface.ui')
         loadUi(ui_file, self)
 
         
@@ -189,13 +190,9 @@ class AdminInterface(Node, QMainWindow):
 
     # worker_report profile label
     def mask_image(self):
-        base_dir = os.path.dirname(os.path.abspath(__file__))
-        image_files = [
-            os.path.join(base_dir, '../data/duck.jpg'),
-            os.path.join(base_dir, '../data/puppy.png'),
-            os.path.join(base_dir, '../data/cat.jpg')
-        ]
-        labels = [self.label_36, self.label_37, self.label_38]
+        
+        image_files = [os.path.join(base_dir, '../data/duck.jpg'), os.path.join(base_dir, '../data/puppy.jpg'), os.path.join(base_dir, '../data/cat.jpg')]  # 넣고 싶은 이미지 파일들
+        labels = [self.label_36, self.label_37, self.label_38]  # 대응하는 QLabel 객체들
 
         for image_path, label in zip(image_files, labels):
             pixmap = QPixmap(image_path)

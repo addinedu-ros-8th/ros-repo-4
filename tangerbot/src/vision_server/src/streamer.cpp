@@ -22,6 +22,7 @@ public:
 		// 파라미터 선언/획득
 		declare_parameter<int>("port", 14555);
 		port_ = this->get_parameter("port").as_int();
+		RCLCPP_INFO(this->get_logger(), "Listening on UDP port %d", port_);
 
 		// shared memory 열기
 		shm_ptr_ = shm::open(true);
@@ -95,10 +96,10 @@ private:
 			//RCLCPP_INFO(this->get_logger(), "Receive image");
 	        auto *hdr = reinterpret_cast<PacketHeader*>(buffer.data());	// 헤더
 			
-			// if (hdr->camera_id == 2) {
-			// 	// 바로 릴레이
-			// 	sendto(dest_sockfd_, buffer.data(), n, 0, reinterpret_cast<sockaddr*>(&dest_addr_), sizeof(dest_addr_));
-			// }
+			if (hdr->camera_id == 2) {
+				// 바로 릴레이
+				sendto(dest_sockfd_, buffer.data(), n, 0, reinterpret_cast<sockaddr*>(&dest_addr_), sizeof(dest_addr_));
+			}
 
 			// 시작비트 확인
 	        if (hdr->magic != MAGIC_VALUE) {
@@ -152,12 +153,12 @@ private:
 						cv::imshow("img2", img);
 						cv::waitKey(1);
 					}
-						
 					if (hdr->camera_id == 2) {
 						cv::imshow("img3", img);
 						cv::waitKey(1);
 					}
 					*/
+					
 
 	                Slot& slot = shm_ptr_->cam[hdr->robot_id - 1][int(hdr->camera_id)];
 	                if (encoded.size() > MAX_IMG) {
@@ -188,11 +189,10 @@ private:
 	std::thread recv_thread_;
 	std::atomic<bool> running_;
 
-	int dest_port_;
+	int dest_port_ = 14555;
 	int dest_sockfd_ = -1;
-	const char *dest_ip_ = "192.168.0.1";
+	const char *dest_ip_ = "192.168.0.65";
 	struct sockaddr_in dest_addr_;
-
 };
 
 int main(int argc, char **argv) {

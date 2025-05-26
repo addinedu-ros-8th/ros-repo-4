@@ -5,9 +5,12 @@
 using namespace std::chrono_literals;
 using namespace std;
 using namespace std::placeholders;
+
+using SetState = tangerbot_msgs::srv::SetState;
 using Parking = tangerbot_msgs::action::Parking;
 using GoalHandlerParking = rclcpp_action::ServerGoalHandle<Parking>;
 using DetectedMarker = tangerbot_msgs::msg::DetectedMarker;
+using RobotState = tangerbot_msgs::msg::RobotState;
 using Twist = geometry_msgs::msg::Twist;
 
 
@@ -19,16 +22,17 @@ using Twist = geometry_msgs::msg::Twist;
 TangerbotManager::TangerbotManager() : Node("tangerbot_manager")
 {
     // initalization
-    robot_id = "robot2";
     main_status = tangerbot_msgs::msg::RobotState::IDLE;
     motion_status = tangerbot_msgs::msg::RobotState::STOP;
-    pid_linear = PID(0.5, 0.0, 0.1);
-    pid_angular = PID(0.5, 0.0, 0.1);
+    pid_linear = PID(0.5, 0.1, 1);
+    pid_angular = PID(1.5, 0.1, 1);
+    ns = robot_id;
 
     // publisher
     state_publisher = this->create_publisher<tangerbot_msgs::msg::RobotState>("robot_state", 10);
-    cmd_vel_pub  = this->create_publisher<Twist>("/cmd_vel", 10);
+    cmd_vel_pub  = this->create_publisher<Twist>(ns + "/cmd_vel", 10);
     timer_ = this->create_wall_timer(500ms, std::bind(&TangerbotManager::state_callbacks, this));
+    workload_timer = this->create_wall_timer(1s, std::bind(&TangerbotManager::update_workload, this));
     
     // subscriber
     person_pose_subscriber = this->create_subscription<tangerbot_msgs::msg::RobotPose>(
@@ -37,11 +41,14 @@ TangerbotManager::TangerbotManager() : Node("tangerbot_manager")
     detected_marker_sub = this->create_subscription<DetectedMarker>(
         "/detected_marker", 10, std::bind(&TangerbotManager::detected_marker_callback, this, _1)
     );
+
+    // service
+    set_state_server = this->create_service<SetState>(ns + "/set_state", std::bind(&TangerbotManager::set_state, this, _1, _2));
     
     // action
     parking_server = rclcpp_action::create_server<Parking>(
         this,
-        "parking",
+        ns + "parking",
         std::bind(&TangerbotManager::parking_handle_goal, this, _1, _2),
         std::bind(&TangerbotManager::parking_handle_cancel, this, _1),
         std::bind(&TangerbotManager::parking_handle_accepted, this, _1)
@@ -85,8 +92,8 @@ void TangerbotManager::update_battery() {
     float battery_percentage = battery_sensor.get_battery();  
 
     RCLCPP_INFO(this->get_logger(), "Battery percentage: %.2f%%", battery_percentage);
-
-    this->battery = battery_percentage;  
+    if (battery_percentage == 0 || battery_percentage == 100) return;
+    this->battery = battery_percentage; 
 }
 
 /************************************************
@@ -159,11 +166,14 @@ void TangerbotManager::parking_handle_accepted(const std::shared_ptr<GoalHandler
 }
 
 void TangerbotManager::parking_execute(const std::shared_ptr<GoalHandlerParking> goal_handle) {
+    RCLCPP_INFO(this->get_logger(), "Execute parking");
     auto prev_time = std::chrono::high_resolution_clock::now();
     auto stop_cmd_vel = Twist();
     stop_cmd_vel.linear.x = 0.0;
     stop_cmd_vel.angular.z = 0.0;
     auto cmd_vel_msg = Twist();
+    auto back_cmd_vel = Twist();
+    back_cmd_vel.linear.x = -0.1;
     const auto goal = goal_handle->get_goal();
     int target_marker_id = goal->marker_id;
     auto result = std::make_shared<Parking::Result>();
@@ -179,11 +189,50 @@ void TangerbotManager::parking_execute(const std::shared_ptr<GoalHandlerParking>
             return;
         }
 
-        DetectedMarker local_marker_msg;
-        {
-            std::lock_guard<std::mutex> lock(marker_mutex);
-            local_marker_msg = detected_marker_msg;
+
+        int try_count = 0;
+        int marker_index;
+        bool marker_found = false;
+        bool rotate_direction = true;
+        while (rclcpp::ok() && !marker_found) {
+            cmd_vel_pub->publish(back_cmd_vel);
+            back_cmd_vel.angular.z = rotate_direction ? 0.5 : -0.5;
+            rotate_direction = !rotate_direction;
+            
+            const int check_intervals = 10; 
+            for (int i = 0; i < check_intervals; ++i) {
+                {
+                    std::lock_guard<std::mutex> lock(marker_mutex);
+                    marker_index = find_index(detected_marker_msg.marker_id, target_marker_id);
+                }
+
+                if (marker_index != -1) {
+                    cmd_vel_pub->publish(stop_cmd_vel);
+                    RCLCPP_INFO(this->get_logger(), "Marker %d detected immediately!", target_marker_id);
+                    marker_found = true;
+                    break;
+                }
+
+                std::this_thread::sleep_for(std::chrono::milliseconds(50));
+            }
+
+                if (marker_found) {
+                    break; 
+                }
+
+                cmd_vel_pub->publish(stop_cmd_vel);
+                RCLCPP_INFO(this->get_logger(), "Marker %d not detected (try %d)", target_marker_id, try_count + 1);
+
+                try_count++;
+                if (try_count >= 5) {
+                    result->success = false;
+                    goal_handle->abort(result);
+                    return;
+                }
+
+            std::this_thread::sleep_for(std::chrono::seconds(1)); 
         }
+<<<<<<< HEAD
         //
         std::vector<int> v;
         v.push_back(local_marker_msg.marker_id);
@@ -203,15 +252,20 @@ void TangerbotManager::parking_execute(const std::shared_ptr<GoalHandlerParking>
         double x = local_marker_msg.relative_point.x;
         double z = local_marker_msg.relative_point.z;
 
+=======
+        
+        double x = detected_marker_msg.relative_point[marker_index].x;
+        double z = detected_marker_msg.relative_point[marker_index].z;
+>>>>>>> dev
         RCLCPP_INFO(this->get_logger(), "x: %lf, z: %lf", x, z);
         auto current_time = std::chrono::high_resolution_clock::now();
         auto dt = std::chrono::duration<double>(current_time - prev_time).count();
         pid_angular.set_dt(dt);
         pid_linear.set_dt(dt);
-        cmd_vel_msg.linear.x = pid_linear.compute(z, 0.08);
+        cmd_vel_msg.linear.x = pid_linear.compute(z, 0.15);
         cmd_vel_msg.angular.z = pid_angular.compute(0.0, x);
 
-        if (std::abs(0.08 - z) <= z_tolerance && std::abs(x) <= x_tolerance) {
+        if (std::abs(0.15 - z) <= z_tolerance && std::abs(x) <= x_tolerance) {
             result->success = true;
             goal_handle->succeed(result);
             cmd_vel_pub->publish(stop_cmd_vel);
@@ -288,8 +342,23 @@ void TangerbotManager::publish_robot_state() {
     msg.main_status = main_status;
     msg.motion_status = motion_status;
     msg.battery = battery;
+    msg.workload = workload;
 
     state_publisher->publish(msg);
+}
+
+void TangerbotManager::update_workload() {
+    if (motion_status == RobotState::LOADING) {
+        workload -= 100;
+        if (workload <= 0) {
+            workload = 0;
+        }
+    } else if (main_status == RobotState::WORKING && motion_status != RobotState::MOVING) {
+        workload += 10;
+        if (workload >= 1000) {
+            workload = 1000;
+        }
+    }
 }
 
 int main(int argc , char **argv) {
