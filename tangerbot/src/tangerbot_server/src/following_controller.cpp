@@ -283,11 +283,11 @@ int main(int argc, char** argv) {
     rclcpp::init(argc, argv);
     try {
         auto node = std::make_shared<VelocityController>();
-        rclpy::spin(node);
+        rclcpp::spin(node);
     } catch (const std::exception& e) {
         std::cerr << "Fatal: " << e.what() << std::endl;
     }
-    rclpy::shutdown();
+    rclcpp::shutdown();
     
     return 0;
 }
