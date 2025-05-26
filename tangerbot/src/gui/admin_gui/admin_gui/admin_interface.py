@@ -21,10 +21,9 @@ import numpy as np
 import socket
 import struct
 from PyQt5.QtWidgets import QTableWidgetItem, QHeaderView
-from PyQt5.QtCore import pyqtSignal
+from PyQt5.QtCore import pyqtSignal, QObject
 import random
 from PyQt5.QtWidgets import QWidget
-
 
 
 class HarvestCircle(QWidget):
@@ -73,6 +72,7 @@ class AdminInterface(Node, QMainWindow):
     HEADER_FORMAT = '<BBBIHHI'  # little-endian: magic, robot_id, camera_id, frame_id, total_chunks, chunk_id, chunk_size
     HEADER_SIZE = struct.calcsize(HEADER_FORMAT)
     image_received = pyqtSignal(int, int, QPixmap)
+    update_text_signal = pyqtSignal(str)
 
     def __init__(self):
         QMainWindow.__init__(self)
@@ -87,7 +87,7 @@ class AdminInterface(Node, QMainWindow):
         self.show_map_image()
         
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        self.sock.bind(('0.0.0.0', 14550))  # 예시 포트
+        self.sock.bind(('0.0.0.0', 14555))  # 예시 포트
 
         self.buffers = {}  # {(robot_id, frame_id): [None]*total_chunks}
         self.meta = {}     # {(robot_id, frame_id): (received_chunks, total_chunks)}
@@ -96,7 +96,7 @@ class AdminInterface(Node, QMainWindow):
         
         self.image_received.connect(self.on_image_received)
         
-        image_path = os.path.join(os.path.dirname(__file__), '../data/tangermap_2x_fix.png')
+        image_path = os.path.join(os.path.dirname(__file__), '../data/tangermap_fix.png')
         self.original_map_pixmap = QPixmap(image_path)
         if self.original_map_pixmap.isNull():
             print("[에러] 지도 이미지 로딩 실패")
@@ -138,9 +138,9 @@ class AdminInterface(Node, QMainWindow):
 
         # 상태 매핑
         self.status_labels = {
-            "핑키_1번": (self.label_10, self.label_16, self.label_13, self.label_27),
-            "핑키_2번": (self.label_11, self.label_28, self.label_14, self.label_30),
-            "핑키_3번": (self.label_12, self.label_29, self.label_15, self.label_31),
+            "robot1": (self.label_10, self.label_16, self.label_13, self.label_27),
+            "robot2": (self.label_11, self.label_28, self.label_14, self.label_30),
+            "robot3": (self.label_12, self.label_29, self.label_15, self.label_31),
         }
         
         self.figure = Figure(figsize=(4, 3))
@@ -151,6 +151,7 @@ class AdminInterface(Node, QMainWindow):
 
         self.mask_image()
         self.label_39.setText
+        
         # ComboBox 이벤트 연결
         self.comboBox.currentTextChanged.connect(self.update_graph)
 
@@ -168,7 +169,7 @@ class AdminInterface(Node, QMainWindow):
     
     
     def show_map_image(self):
-        image_path = os.path.join(os.path.dirname(__file__), '../data/tangermap.png')
+        image_path = os.path.join(os.path.dirname(__file__), '../data/tangermap_fix.png')
         print("로드 시도 이미지 경로:", image_path)
 
         pixmap = QPixmap(image_path)
@@ -189,58 +190,49 @@ class AdminInterface(Node, QMainWindow):
 
     # worker_report profile label
     def mask_image(self):
-        base_dir = os.path.dirname(os.path.abspath(__file__))
+        
         image_files = [os.path.join(base_dir, '../data/duck.jpg'), os.path.join(base_dir, '../data/puppy.jpg'), os.path.join(base_dir, '../data/cat.jpg')]  # 넣고 싶은 이미지 파일들
         labels = [self.label_36, self.label_37, self.label_38]  # 대응하는 QLabel 객체들
 
-        for image_file, label in zip(image_files, labels):
-            image_path = os.path.join(os.path.dirname(__file__), '../data/', image_file)
+        for image_path, label in zip(image_files, labels):
             pixmap = QPixmap(image_path)
+            
             if pixmap.isNull():
                 print(f"[에러] 이미지 로딩 실패: {image_path}")
                 continue
 
-        pixmap = QPixmap(image_path)
-        if pixmap.isNull():
-            print("[에러] 이미지 로딩 실패:", image_path)
-            return
-
-        target_width = 658
-        target_height = 291
-
-        self.label_17.setFixedSize(target_width, target_height)
-
-        scaled_pixmap = pixmap.scaled(self.label_17.size())
-        self.label_17.setPixmap(scaled_pixmap)
-        self.label_17.setScaledContents(False)  # 또는 False로 두되 크기 맞추기
-        self.label_17.repaint()
-            
+            label.setPixmap(pixmap)
+            label.setScaledContents(True) 
             
     def ros_to_image_coords(self, x, y):
+        # 원본 지도 기준
         origin_x, origin_y = 0.0, 0.0
-        resolution = 0.05
+        resolution = 0.01  # 1픽셀 = 1cm = 0.01m
 
-        # 원본 지도 크기
-        img_width = self.original_map_pixmap.width()
-        img_height = self.original_map_pixmap.height()
+        # 원본 이미지 크기
+        orig_w = 279
+        orig_h = 174
 
-        # ROS 좌표 -> 픽셀 (원본 이미지 기준)
+        # 라벨에 표시되는 실제 이미지 크기 (tangermap_fix.png)
+        display_w = self.label_17.width()
+        display_h = self.label_17.height()
+
+        # ROS 좌표 → 원본 이미지 좌표
         px = (x - origin_x) / resolution
         py = (y - origin_y) / resolution
-        py = img_height - py  # y 반전
+        py = orig_h - py  # Y축 반전
 
-        # label_17 크기에 맞게 스케일 조정
-        label_width = self.label_17.width()
-        label_height = self.label_17.height()
+        # 원본 좌표 → 표시 이미지 좌표 (스케일링)
+        scale_x = display_w / orig_w
+        scale_y = display_h / orig_h
 
-        scale_x = label_width / img_width
-        scale_y = label_height / img_height
 
-        # Qt는 KeepAspectRatio로 표시하므로 scale_x, scale_y 중 작은 값 사용 권장
-        scale = min(scale_x, scale_y)
+        scale = min(scale_x, scale_y)  # KeepAspectRatio 기반
+        margin_x = (display_w - orig_w * scale) / 2
+        margin_y = (display_h - orig_h * scale) / 2
 
-        px_scaled = int(px * scale)
-        py_scaled = int(py * scale)
+        px_scaled = int(px * scale + margin_x)
+        py_scaled = int(py * scale + margin_y)
 
         return px_scaled, py_scaled
 
@@ -253,6 +245,7 @@ class AdminInterface(Node, QMainWindow):
 
     def draw_robot_triangle(self, painter, x, y, yaw):
         size = 15
+        yaw += math.radians(-90)
         points = [
             QPointF(0, -size),
             QPointF(size / 2, size / 2),
@@ -260,10 +253,11 @@ class AdminInterface(Node, QMainWindow):
         ]
         rotated_points = []
         for p in points:
-            rx = p.x() * math.cos(yaw) - p.y() * math.sin(yaw)
-            ry = p.x() * math.sin(yaw) + p.y() * math.cos(yaw)
+            mirrored_x = -p.x()
+            rx = p.x() * math.cos(-yaw) - p.y() * math.sin(-yaw)
+            ry = p.x() * math.sin(-yaw) + p.y() * math.cos(-yaw)
             rotated_points.append(QPointF(x + rx, y + ry))
-
+    
         polygon = QPolygonF(rotated_points)
         painter.setBrush(QColor(255, 0, 0, 180))  # 반투명 빨강
         painter.drawPolygon(polygon)
@@ -310,7 +304,8 @@ class AdminInterface(Node, QMainWindow):
         scale = scaled_pixmap.width() / orig_w  # 또는 height도 같음
 
         origin_x, origin_y = 0.0, 0.0
-        resolution = 0.05
+        resolution_y = 0.006
+        resolution_x = 0.0045
 
         for robot_id, pose in self.robot_poses.items():
             x = pose.position.x
@@ -318,8 +313,8 @@ class AdminInterface(Node, QMainWindow):
             yaw = self.quaternion_to_yaw(pose.orientation)
 
             # ROS 좌표 → 원본 이미지 픽셀 좌표
-            px = (x - origin_x) / resolution
-            py = (y - origin_y) / resolution
+            px = (x - origin_x) / resolution_x
+            py = (y - origin_y) / resolution_y
             py = orig_h - py  # y 반전
 
             # 스케일 적용 후 여백 보정

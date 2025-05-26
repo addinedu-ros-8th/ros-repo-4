@@ -761,6 +761,14 @@ void Brain::handle_command_service_callback(
 
         RCLCPP_INFO(this->get_logger(), "Following mode activated for robot: %s", robot_id.c_str());
         response->success = true;
+<<<<<<< HEAD
+
+
+        // 4. Gesture On
+        
+        return;
+=======
+>>>>>>> dev
     }
 
     response->success = true;

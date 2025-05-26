@@ -232,9 +232,31 @@ void TangerbotManager::parking_execute(const std::shared_ptr<GoalHandlerParking>
 
             std::this_thread::sleep_for(std::chrono::seconds(1)); 
         }
+<<<<<<< HEAD
+        //
+        std::vector<int> v;
+        v.push_back(local_marker_msg.marker_id);
+        //
+        int marker_index = find_index(v, target_marker_id);
+        // int marker_index = find_index(local_marker_msg.marker_id, target_marker_id);
+        if (marker_index == -1) {
+            result->success = false;
+            goal_handle->abort(result);
+            cmd_vel_pub->publish(stop_cmd_vel);
+            return;
+        }
+        
+        // double x = local_marker_msg.relative_point[marker_index].x;
+        // double z = local_marker_msg.relative_point[marker_index].z;
+        
+        double x = local_marker_msg.relative_point.x;
+        double z = local_marker_msg.relative_point.z;
+
+=======
         
         double x = detected_marker_msg.relative_point[marker_index].x;
         double z = detected_marker_msg.relative_point[marker_index].z;
+>>>>>>> dev
         RCLCPP_INFO(this->get_logger(), "x: %lf, z: %lf", x, z);
         auto current_time = std::chrono::high_resolution_clock::now();
         auto dt = std::chrono::duration<double>(current_time - prev_time).count();
