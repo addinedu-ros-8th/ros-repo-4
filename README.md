@@ -169,6 +169,8 @@
 
 ### 6.2 Path Planning / Driving
 
+![path](https://github.com/user-attachments/assets/20958294-5218-46fa-8a55-f2f1c156983d)
+
 #### 6.2.1 A* Algorithm
 - 기존 A* 알고리즘은 출발노드-현재노드의 거리 + 현재노드-타겟노드의 거리를 Cost로 설정하여 최단 경로를 생성하는 알고리즘이다.
 
@@ -178,7 +180,6 @@
 #### 6.2.3 Hybrid Path Planning
 - 기존 A* 알고리즘에서 사용하는 휴리스틱 거리 측정값에 Distmap을 이용한 장애물과의 거리 비용으로 감쇠시켜 **최단 거리 + 안전 경로**를 생성한다.
 
-![path](https://github.com/user-attachments/assets/20958294-5218-46fa-8a55-f2f1c156983d)
 
 #### 6.2.4 Driving Controller
 - Path Planning을 통해 Path를 생성하고, NavigateToPose Behavior Tree (BT)를 사용하지 않고, FollowPath Action을 직접 호출함으로써 사전에 생성된 경로를 로봇이 강제로 추종하게한다.
@@ -202,5 +203,9 @@
 - 로봇3대 * 카메라3개 = 총 9개의 영상 스트림 처리해야한다.
 - 실시간 처리 가능해야한다.
 
+#### 6.3.2 Architecture Selection
+![arch](https://github.com/user-attachments/assets/e08ff619-a4d2-4cbb-b5d2-6962b9ad0ba2)
 
+- System Architecture
+![sys](https://github.com/user-attachments/assets/d6e1b9f4-2d1d-442a-a90a-100309f2a1b6)
 
