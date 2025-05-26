@@ -39,8 +39,9 @@ Tangerine::Tangerine(QWidget *parent) :
 {
     using namespace std::placeholders;
     ui->setupUi(this);
-    //ui->stackedWidget->setCurrentIndex(0);
+    ui->stackedWidget->setCurrentIndex(3);
     ui->robot_widget->setCurrentIndex(1);
+    current_robottab_index = 1;
     called_robot = true;
 
     /**********************************************

@@ -5,6 +5,7 @@ from geometry_msgs.msg import TransformStamped
 from geometry_msgs.msg import PoseWithCovarianceStamped
 from geometry_msgs.msg import PoseStamped
 from geometry_msgs.msg import Twist
+from tangerbot_msgs.msg import RobotPose
 import tf2_ros
 import math
 import numpy as np
@@ -38,7 +39,7 @@ class MyTfBroadcaster(Node):
         
         self.br = tf2_ros.TransformBroadcaster(self)
         
-        self.tracked_pose_pub = self.create_publisher(PoseStamped, "tracked_pose", 10)
+        self.robot_pose_pub = self.create_publisher(RobotPose, "robot_pose", 10)
         self.timer = self.create_timer(0.05, self.timer_callback)
         self.t = 0.0
         
@@ -60,14 +61,23 @@ class MyTfBroadcaster(Node):
         self.aruco_marker_list = robot_data["robot"]["aruco_marker"]
         self.robot_id_list = robot_data["robot"]["robot_id"]
         
-        self.prev_yaw = 0
-        self.prev_tvec = np.array([0, 0, 0])
+        self.prev_yaw = {}
+        self.prev_tvec = {}
+        
+        self.robot_id_dic = {}
+        for i in range(len(self.aruco_marker_list)):
+            self.robot_id_dic[self.aruco_marker_list[i]] = self.robot_id_list[i]
         self.ALPHA = 0.6
         
-        self.is_driving = False
+        self.is_driving = {}
         
-        self.cmd_vel_sub = self.create_subscription(Twist, "/cmd_vel", lambda msg, ns="robot1": self.cmd_vel_callback(msg, ns), 10)
-        
+        self.cmd_vel_sub = {}
+        for robot_id in self.robot_id_list:
+            self.cmd_vel_sub[robot_id] = self.create_subscription(Twist, robot_id + "/cmd_vel", lambda msg, ns=robot_id: self.cmd_vel_callback(msg, ns), 10)
+            self.is_driving[robot_id] = False
+            self.prev_yaw[robot_id] = 0.0
+            self.prev_tvec[robot_id] = np.array([0, 0, 0])
+            
     def get_yaml(self, path):
         with open(path, 'r') as f:
             data = yaml.safe_load(f)
@@ -88,9 +98,9 @@ class MyTfBroadcaster(Node):
         
     def cmd_vel_callback(self, msg, ns):
         if msg.linear.x == 0.0 and msg.angular.z == 0.0:
-            self.is_driving = False
+            self.is_driving[ns] = False
         else:
-            self.is_driving = True
+            self.is_driving[ns] = True
         
     def pose_estimation(self, frame):
         pkg_path = get_package_share_directory('aruco_package')
@@ -128,8 +138,6 @@ class MyTfBroadcaster(Node):
         camera.transform.rotation.y = camera_pose["orientation"]['y']
         camera.transform.rotation.z = camera_pose["orientation"]['z']
         camera.transform.rotation.w = camera_pose["orientation"]['w']
-        
-        # Map -> odom TF required for nav2 navigation
         odom = TransformStamped()
         odom.header.frame_id = "map"
         odom.child_frame_id = "odom"
@@ -137,23 +145,30 @@ class MyTfBroadcaster(Node):
         
         tf_list = [base, odom]
         
+        # Map -> odom TF required for nav2 navigation
+        # for robot_id in self.robot_id_list:
+        #     odom = TransformStamped()
+        #     odom.header.frame_id = "map"
+        #     odom.child_frame_id = robot_id + "/odom"
+        #     odom.header.stamp = time_stamp
+        #     tf_list.append(odom)
+
+        
+        
         gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
         corners, ids, _ = self.detector.detectMarkers(gray)
         
         if ids is not None and len(corners) > 0:
             ids = [ids[i][0] for i in range(len(ids))]
             for i in range(len(ids)):
+                if ids[i] not in self.aruco_marker_list:
+                    continue
+                
                 
                 # Get rvec, tvec
                 rvec, tvec, _ = cv2.aruco.estimatePoseSingleMarkers(
                     corners[i], self.marker_length, self.matrix_coefficients, self.distortion_coefficients
                 )
-                
-                # if ids[i] not in self.aruco_marker_list:
-                #     continue
-                
-                if ids[i] != 3:
-                    continue
                 
                 R, _ = cv2.Rodrigues(rvec)
                 tvec = tvec.reshape(3, 1)
@@ -197,12 +212,18 @@ class MyTfBroadcaster(Node):
                 T_map_marker = T_map_cam @ T_cam_marker
                 t_map_marker = T_map_marker[:3, 3]
                 
+                robot_id = self.robot_id_dic[ids[i]]
+                
                 t = TransformStamped()
+                t2 = TransformStamped()
+
                 
                 t.header.stamp = time_stamp
+                t2.header.stamp = time_stamp
+        
         
                 t.header.frame_id = "odom"
-                t.child_frame_id = "base_footprint"
+                t.child_frame_id = "robot1/base_footprint"
                 
                 quat = tf_transformations.quaternion_from_matrix(T_map_marker)
                 
@@ -210,21 +231,23 @@ class MyTfBroadcaster(Node):
 
                 # t.transform.translation.y = float(calibrated_translation[1]/100)
                 
-                if self.is_driving:
+                if self.is_driving[robot_id]:
                     ALPHA = self.ALPHA
                 else:
                     ALPHA = 0.9
                 t_map_marker = np.array(t_map_marker)
-                t_map_marker = ALPHA * self.prev_tvec + (1 - ALPHA) * t_map_marker
-                self.prev_tvec = t_map_marker
+                t_map_marker = ALPHA * self.prev_tvec[robot_id] + (1 - ALPHA) * t_map_marker
+                self.prev_tvec[robot_id] = t_map_marker
                 t.transform.translation.x = t_map_marker[0]
                 t.transform.translation.y = t_map_marker[1]
                 t.transform.translation.z = 0.0
                 
+
+            
                 roll, pitch, yaw = euler_from_quaternion(quat)
 
-                yaw = self.prev_yaw * self.ALPHA + yaw * (1 - self.ALPHA)
-                self.prev_yaw = yaw
+                yaw = self.prev_yaw[robot_id] * self.ALPHA + yaw * (1 - self.ALPHA)
+                self.prev_yaw[robot_id] = yaw
             
                 q2d = quaternion_from_euler(0, 0, yaw)
 
@@ -233,23 +256,25 @@ class MyTfBroadcaster(Node):
                 t.transform.rotation.z = float(q2d[2])
                 t.transform.rotation.w = float(q2d[3])
                 
-                tracked_pose = PoseStamped()
-                tracked_pose.header.frame_id = "map"
-                tracked_pose.pose.position.x = t_map_marker[0]
-                tracked_pose.pose.position.y = t_map_marker[1]
-                tracked_pose.pose.position.z = 0.0
-                tracked_pose.pose.orientation.x = float(q2d[0])
-                tracked_pose.pose.orientation.x = float(q2d[1])
-                tracked_pose.pose.orientation.x = float(q2d[2])
-                tracked_pose.pose.orientation.x = float(q2d[3])
+
                 
-                self.tracked_pose_pub.publish(tracked_pose)
+                robot_pose = RobotPose()
+                robot_pose.robot_id = robot_id
+                robot_pose.pose.header.frame_id = "map"
+                robot_pose.pose.pose.position.x = t_map_marker[0]
+                robot_pose.pose.pose.position.y = t_map_marker[1]
+                robot_pose.pose.pose.position.z = 0.0
+                robot_pose.pose.pose.orientation.x = float(q2d[0])
+                robot_pose.pose.pose.orientation.y = float(q2d[1])
+                robot_pose.pose.pose.orientation.z = float(q2d[2])
+                robot_pose.pose.pose.orientation.w = float(q2d[3])
+                
+                self.robot_pose_pub.publish(robot_pose)
                 
                 tf_list.append(t)
                 # Draw marker border and axis
                 cv2.aruco.drawDetectedMarkers(frame, corners)
                 cv2.drawFrameAxes(frame, self.matrix_coefficients, self.distortion_coefficients, rvec, tvec, self.marker_length * 0.5)
-            
         self.br.sendTransform(tf_list)
         return frame
 
@@ -285,3 +310,5 @@ def main(args=None):
     time.sleep(2)
     rp.spin(tf)
     rp.shutdown(tf)
+
+

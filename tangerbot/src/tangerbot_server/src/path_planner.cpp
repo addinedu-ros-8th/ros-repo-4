@@ -14,6 +14,7 @@
 using OccupancyGrid = nav_msgs::msg::OccupancyGrid;
 using PathPlanning = tangerbot_msgs::action::PathPlanning;
 using GoalHandlePathPlanning = rclcpp_action::ServerGoalHandle<PathPlanning>;
+using RobotPose = tangerbot_msgs::msg::RobotPose;
 using namespace std::placeholders;
 using namespace std;
 
@@ -26,16 +27,19 @@ PathPlanner::PathPlanner(const rclcpp::NodeOptions & options = rclcpp::NodeOptio
       std::bind(&PathPlanner::handle_goal, this, _1, _2),
       std::bind(&PathPlanner::handle_cancel, this, _1),
       std::bind(&PathPlanner::handle_accepted, this, _1));
+    
+    for (const auto& robot_id : ns) {
+        costmap_sub[robot_id] = this->create_subscription<OccupancyGrid>(
+        robot_id + "/global_costmap/costmap", 10, [this, robot_id](const OccupancyGrid::SharedPtr msg){
+            this->costmap_callback(msg, robot_id);
+        });
+    }
 
-    costmap_sub = this->create_subscription<OccupancyGrid>(
-        "/global_costmap/costmap", 10, std::bind(&PathPlanner::costmap_callback, this, _1)
+    robot_pose_sub = this->create_subscription<RobotPose>(
+        "/robot_pose", 10, std::bind(&PathPlanner::robot_pose_callback, this, _1)
     );
 
-    tracked_pose_sub = this->create_subscription<geometry_msgs::msg::PoseStamped>(
-        "/tracked_pose", 10, std::bind(&PathPlanner::tracked_pose_callback, this, _1)
-    );
-
-    get_map_client = this->create_client<nav_msgs::srv::GetMap>("/map_server/map");
+    get_map_client = this->create_client<nav_msgs::srv::GetMap>("robot3/map_server/map");
 
     while (!get_map_client->wait_for_service(std::chrono::seconds(1))) {
         RCLCPP_INFO(this->get_logger(), "Waiting for /map service...");
@@ -46,13 +50,13 @@ PathPlanner::PathPlanner(const rclcpp::NodeOptions & options = rclcpp::NodeOptio
         std::bind(&PathPlanner::map_callback, this, std::placeholders::_1));
 }
 
-void PathPlanner::costmap_callback(const OccupancyGrid::SharedPtr msg) {
+void PathPlanner::costmap_callback(const OccupancyGrid::SharedPtr msg, string ns) {
     int width = msg->info.width;
     int height = msg->info.height;
     origin = msg->info.origin.position;
     const std::vector<int8_t> &data = msg->data;
 
-    RCLCPP_INFO(this->get_logger(), "Map width: %d, height: %d", width, height);
+    RCLCPP_INFO(this->get_logger(), "%s Costmap Callback Map width: %d, height: %d", ns.c_str(), width, height);
 
     cv::Mat map_img(height, width, CV_8UC1);
 
@@ -81,7 +85,7 @@ void PathPlanner::costmap_callback(const OccupancyGrid::SharedPtr msg) {
     }
 
     cv::resize(result, result, cv::Size(width*5, height*5));
-    costmap = result;
+    costmap[ns] = result;
 }
 
 void PathPlanner::map_callback(rclcpp::Client<nav_msgs::srv::GetMap>::SharedFuture future) {
@@ -124,8 +128,9 @@ void PathPlanner::map_callback(rclcpp::Client<nav_msgs::srv::GetMap>::SharedFutu
     map = result;
 }
 
-void PathPlanner::tracked_pose_callback(const geometry_msgs::msg::PoseStamped::SharedPtr msg) {
-    tracked_pose = *msg;
+void PathPlanner::robot_pose_callback(const RobotPose::SharedPtr msg) {
+    auto robot_id = msg->robot_id;
+    robot_pose[robot_id] = msg->pose;
 }
 
 pair<vector<pair<double, double>>, float> PathPlanner::astar(const cv::Mat& binary_map, const cv::Mat& dist_map, Point start, Point goal, float k) {
@@ -215,7 +220,7 @@ pair<vector<pair<double, double>>, float> PathPlanner::astar(const cv::Mat& bina
     return {}; // Path not found
 }
 
-nav_msgs::msg::Path PathPlanner::add_orientation(const vector<pair<double, double>> path, string frame_id) {
+nav_msgs::msg::Path PathPlanner::add_orientation(const vector<pair<double, double>> path, PoseStamped goal_pose, string frame_id) {
     nav_msgs::msg::Path path_with_orientation;
     path_with_orientation.header.frame_id = frame_id;
 
@@ -288,22 +293,23 @@ void PathPlanner::execute(const std::shared_ptr<GoalHandlePathPlanning> goal_han
     RCLCPP_INFO(this->get_logger(), "Executing goal");
     rclcpp::Rate loop_rate(1);
     const auto goal = goal_handle->get_goal();
-    goal_pose = goal->goal;
+    auto original_goal_pose = goal->goal;
+    auto robot_id = goal->robot_id;
     auto feedback = std::make_shared<PathPlanning::Feedback>();
     auto result = std::make_shared<PathPlanning::Result>();
 
     cv::Mat dist;
-    cv::distanceTransform(costmap, dist, cv::DIST_L2, 5);
+    cv::distanceTransform(costmap[robot_id], dist, cv::DIST_L2, 5);
 
     Point start, goal_pose, map_pose;
     map_pose.first = -origin.x * 100;
     map_pose.second = -origin.y * 100;
-    start.first = static_cast<int>(tracked_pose.pose.position.x * 100) + map_pose.first;
-    start.second = static_cast<int>(tracked_pose.pose.position.y * 100) + map_pose.second;
-    goal_pose.first = static_cast<int>(goal->goal.pose.position.x * 100) + map_pose.first;
-    goal_pose.second = static_cast<int>(goal->goal.pose.position.y * 100) + map_pose.second;
+    start.first = static_cast<int>(robot_pose[robot_id].pose.position.x * 100) + map_pose.first;
+    start.second = static_cast<int>(robot_pose[robot_id].pose.position.y * 100) + map_pose.second;
+    goal_pose.first = static_cast<int>(original_goal_pose.pose.position.x * 100) + map_pose.first;
+    goal_pose.second = static_cast<int>(original_goal_pose.pose.position.y * 100) + map_pose.second;
 
-    auto [path, distance] = this->astar(costmap, dist, start, goal_pose, 10.0);
+    auto [path, distance] = this->astar(costmap[robot_id], dist, start, goal_pose, 10.0);
     if (path.empty()) {
         RCLCPP_INFO(this->get_logger(), "Path planning with original map");
         std::tie(path, distance) = this->astar(map, dist, start, goal_pose, 10.0);
@@ -320,14 +326,14 @@ void PathPlanner::execute(const std::shared_ptr<GoalHandlePathPlanning> goal_han
         return;
     }
 
-    cv::Mat img_show = costmap;
+    cv::Mat img_show = costmap[robot_id];
     for (auto each : path) {
         RCLCPP_INFO(this->get_logger(), "Path x: %lf, y: %lf", each.first, each.second);
         cv::circle(img_show, cv::Point(map_pose.first + each.first * 100, map_pose.second + each.second * 100), 5, cv::Scalar(0, 0, 0), -1);
     }
     RCLCPP_INFO(this->get_logger(), "Redeay for sending path");
     auto path_msg = nav_msgs::msg::Path();
-    path_msg = this->add_orientation(path, "map");
+    path_msg = this->add_orientation(path, original_goal_pose, "map");
 
     
     // Check if goal is done
