@@ -86,9 +86,7 @@ private:
         robot_id_--;
         active_ = req->mode;        
         res->success = true;
-        RCLCPP_INFO(get_logger(),
-          "[Follower] robot %u %s", robot_id_, active_ ? "ENABLED" : "DISABLED"
-        );
+        RCLCPP_INFO(get_logger(), "[Follower] robot %u %s", robot_id_, active_ ? "ENABLED" : "DISABLED");
         return;
     }
 

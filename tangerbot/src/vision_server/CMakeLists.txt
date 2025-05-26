@@ -105,6 +105,7 @@ ament_target_dependencies(obstacle_checker
   std_msgs
   sensor_msgs
   ament_index_cpp
+  tangerbot_msgs
 )
 target_link_libraries(obstacle_checker
   ${OpenCV_LIBS}
