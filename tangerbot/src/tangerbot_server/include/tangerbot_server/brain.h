@@ -57,12 +57,7 @@ public:
     using SetFollowMode = tangerbot_msgs::srv::SetFollowMode;
     using SetState = tangerbot_msgs::srv::SetState;
     using SignUp = tangerbot_msgs::srv::SignUp;
-<<<<<<< HEAD
-    
     using SignIn = tangerbot_msgs::srv::SignIn;
-=======
-    //using SignIn = tangerbot_msgs::srv::SignIn;
->>>>>>> dev
 
     //message
     using RobotState = tangerbot_msgs::msg::RobotState;
