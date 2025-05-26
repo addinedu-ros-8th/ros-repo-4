@@ -10,17 +10,35 @@
 
 ## 0. Result of Project (프로젝트 결과)
 
+[프로젝트 발표자료](https://docs.google.com/presentation/d/17GA3_9FwbYOUKxhgFLf6M306EXwgDT1XTi172D_RqTs/edit?usp=sharing)
+
 > 영상
 
 ## 1. Team Members (팀원 소개)
 
 ### 김가은 (팀장)
+- 통신 구조 설계
+- 중앙제어 서버 구현
+- Thread 기반 작업 처리 구현
+- 일정관리 및 문서관리
 
 ### 박세린
+- 제스처 인식 알고리즘 개발
+- 영상데이터 공유메모리 연동 처리
+- 제스처 명령 해석 및 시각화 구현
 
 ### 박정배
+- ROS2 + PyQt 기반 통합 모니터링 gui
+- 카메라 영상 수신 및 표시
+- 음성 명령 처리 및 명령 추출
+- 맵,좌표 변환 및 ui반영
 
 ### 이명운
+- segmentation & tracking 객체인식 구현
+- depth estimation SGM 알고리즘 구현
+- 공유 메모리 구조 구현
+- Human Following 을 위한 PID제어기 구현
+
 
 ### 이태민
 - ROS2 패키지 구조 및 통신 시퀀스 설계
@@ -105,7 +123,7 @@
 ### 5.2 Tangerbot Features
 
 #### 5.2.1 Autonomous Driving (자율주행)
-[![call](https://img.youtube.com/vi/deswGHgMtCY/0.jpg)](https://youtube.com/shorts/deswGHgMtCY)
+[![call](https://img.youtube.com/vi/PVyXhIF-orY/0.jpg)](https://www.youtube.com/PVyXhIF-orY)
 
 - 로봇은 FollowPath Action을 Tangerbot Server로 부터 생성된 경로와 함께 요청 받으면 RPP (Requlated Pure Pursuit) controller로 경로를 추종한다. 
 
@@ -117,7 +135,7 @@
 - Tangerbot Server는 전달받은 PersonPose를 PID 제어를 통해 Twist 토픽으로 로봇을 제어해 사람을 따라다님
 
 #### 5.2.3 Avoiding Obstacle
-[![obstacle](https://img.youtube.com/vi/deswGHgMtCY/0.jpg)](https://youtube.com/shorts/deswGHgMtCY)
+[![obstacle](https://img.youtube.com/vi/HF5oS0KGiDY/0.jpg)](https://www.youtube.com/shorts/HF5oS0KGiDY)
 
 - Tangerbot Server는 주행 중 Vision Server로부터 ObstacleBool Topic을 통해 로봇의 장애물 감지 유무를 확인할 수 있다.
 - 장애물이 감지되면 Tangerbot Server는 FollowPath Action을 취소하고 장애물이 감지되지 않을 때까지 후진 회피한다.
@@ -131,7 +149,7 @@
 - 로봇은 마커와의 상대적인 좌표를 계산하여 스스로 주차할 수 있다.
 
 #### 5.2.5 Speech Recognition (음성 인식)
-[![speech](https://img.youtube.com/vi/deswGHgMtCY/0.jpg)](https://youtube.com/shorts/deswGHgMtCY)
+[![speech](https://img.youtube.com/vi/cPCpfXwTbWg/0.jpg)](https://www.youtube.com/shorts/cPCpfXwTbWg)
 
 - 로봇은 Wake Word (핑키야)를 통해 음성 인식을 시작하며, 2초간 음성이 인식되지 않으면 Talker Server에 RawVoice Topic으로 음성 데이터를 전송한다.
 - 음성 데이터를 받은 Talker 서버는 STT를 적용하여 Tangerbot Server로 전달한다.
@@ -236,6 +254,9 @@
 - 일부 영역에 구멍, 정제되지 않은 패턴 존재 -> 후처리 필요
 
 #### 6.4.2 Filtering
+
+![cuda](https://github.com/user-attachments/assets/0c8d74d9-118c-43c8-a506-dfbd20fb5219)
+
 1. 스파클 제거 (Speckle Filtering)
    - ```cv::filterSpeckles()``` 함수는 이러한 작은 잡음들을 **Flood Fill 방식으로 제거**
    - 결과: **랜덤하게 박힌 노이즈 제거**, 작은 홀도 함께 제거 가능
@@ -256,10 +277,4 @@
 
 #### 6.4.3 Pipeline
 - YOLOv8 Seg -> Person Detection + Mask -> DeepSORT 추적 -> 특정 ID 마스크 중심 추출 -> 좌표 퍼블리시
-
-#### 6.3.2 Architecture Selection
-![arch](https://github.com/user-attachments/assets/e08ff619-a4d2-4cbb-b5d2-6962b9ad0ba2)
-
-- System Architecture
-![sys](https://github.com/user-attachments/assets/d6e1b9f4-2d1d-442a-a90a-100309f2a1b6)
 
