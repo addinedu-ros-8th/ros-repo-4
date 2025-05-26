@@ -64,6 +64,25 @@ struct Quaternion {
 
 class Brain : public rclcpp::Node {    
 public:
+    //action
+    using PathPlanning = tangerbot_msgs::action::PathPlanning;
+    using FollowPath = nav2_msgs::action::FollowPath;
+    using Parking = tangerbot_msgs::action::Parking;
+
+    //service
+    using HandleCommand = tangerbot_msgs::srv::HandleCommand;
+    using SetFollowMode = tangerbot_msgs::srv::SetFollowMode;
+    using SetState = tangerbot_msgs::srv::SetState;
+    using SignUp = tangerbot_msgs::srv::SignUp;
+    using SignIn = tangerbot_msgs::srv::SignIn;
+
+    //message
+    using RobotState = tangerbot_msgs::msg::RobotState;
+    using CallState = tangerbot_msgs::msg::CallState;
+    using Twist = geometry_msgs::msg::Twist;
+
+
+
     Brain();
     ~Brain();
 

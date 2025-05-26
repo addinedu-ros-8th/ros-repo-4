@@ -50,7 +50,7 @@ class HumanPose(Node):
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.get_logger().info(f"Using device: {self.device}")
         self.model = YOLO("yolov8n-seg.pt").to(self.device)
-        self.tracker = DeepSort(max_age = 50, n_init = 3, max_cosine_distance = 0.3, nn_budget = 50)
+        self.tracker = DeepSort(max_age = 100, n_init = 5, max_cosine_distance = 0.3, nn_budget = 100)
         self.TARGET_ID = None
 
         # 왜곡 보정 파라미터
@@ -77,7 +77,7 @@ class HumanPose(Node):
         self.fail_count = 0
         self.max_fails = 3
         self.last_detection_time = time.time()  # 마지막 유효 디텍션 시간
-        self.no_detection_timeout = 3.0  # 3초 타임아웃
+        self.no_detection_timeout = 2.0  # 3초 타임아웃
 
     def handle_set_mode(self, request, response):
         # "robot1" → 인덱스 0

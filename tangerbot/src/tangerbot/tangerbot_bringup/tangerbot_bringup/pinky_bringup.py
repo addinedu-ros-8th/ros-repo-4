@@ -12,7 +12,8 @@ class PinkyBringup(Node):
  
     def __init__(self):
         super().__init__('pinky_bringup')
- 
+        self.declare_parameter('namespace', "robot1") # 왼쪽 모터 출력 비율 설정
+        ns = self.get_parameter('namespace').get_parameter_value().string_value
         self.pinky = Motor()
 
         self.pinky.enable_motor()
@@ -20,7 +21,7 @@ class PinkyBringup(Node):
  
         self.cmd_vel_subscription = self.create_subscription(
             Twist,
-            '/cmd_vel',
+            ns + '/cmd_vel',
             self.cmd_vel_callback,
             1
         )

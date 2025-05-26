@@ -307,69 +307,107 @@ global_costmap:
         scan:
           topic: robot3/scan
           max_obstacle_height: 2.0
-          clearing: True
-          marking: True
-          data_type: "LaserScan"
-          raytrace_max_range: 3.0
-          raytrace_min_range: 0.0
-          obstacle_max_range: 2.5
-          obstacle_min_range: 0.0
-      static_layer:
-        plugin: "nav2_costmap_2d::StaticLayer"
-        map_subscribe_transient_local: True
-      inflation_layer:
-        plugin: "nav2_costmap_2d::InflationLayer"
-        cost_scaling_factor: 0.0
-        inflation_radius: 0.06
-      always_send_full_costmap: True
+          mark_threshold: 0
+          observation_sources: scan
+          scan:
+            topic: /scan
+            max_obstacle_height: 2.0
+            clearing: True
+            marking: True
+            data_type: "LaserScan"
+            raytrace_max_range: 3.0
+            raytrace_min_range: 0.0
+            obstacle_max_range: 1.0
+            obstacle_min_range: 0.0
+        static_layer:
+          plugin: "nav2_costmap_2d::StaticLayer"
+          map_subscribe_transient_local: True
+        always_send_full_costmap: True
+
+  global_costmap:
+    global_costmap:
+      ros__parameters:
+        footprint_padding: 0.03
+        update_frequency: 1.0
+        publish_frequency: 1.0
+        global_frame: map
+        robot_base_frame: base_link
+        #robot_radius: 0.22
+        footprint: '[[0.05, 0.06], [0.05, -0.06], [-0.05, -0.06], [-0.05, 0.06]]'
+        resolution: 0.05
+        track_unknown_space: false
+        plugins: ["static_layer", "obstacle_layer", "inflation_layer"]
+        obstacle_layer:
+          plugin: "nav2_costmap_2d::ObstacleLayer"
+          enabled: True
+          observation_sources: scan
+          scan:
+            topic: /scan
+            max_obstacle_height: 2.0
+            clearing: True
+            marking: True
+            data_type: "LaserScan"
+            raytrace_max_range: 3.0
+            raytrace_min_range: 0.0
+            obstacle_max_range: 2.5
+            obstacle_min_range: 0.0
+        static_layer:
+          plugin: "nav2_costmap_2d::StaticLayer"
+          map_subscribe_transient_local: True
+        inflation_layer:
+          plugin: "nav2_costmap_2d::InflationLayer"
+          cost_scaling_factor: 0.0
+          inflation_radius: 0.06
+        always_send_full_costmap: True
 
 
-# The yaml_filename does not need to be specified since it going to be set by defaults in launch.
-# If you'd rather set it in the yaml, remove the default "map" value in the tb3_simulation_launch.py
-# file & provide full path to map below. If CLI map configuration or launch default is provided, that will be used.
-# map_server:
-#   ros__parameters:
-#     yaml_filename: ""
+  # The yaml_filename does not need to be specified since it going to be set by defaults in launch.
+  # If you'd rather set it in the yaml, remove the default "map" value in the tb3_simulation_launch.py
+  # file & provide full path to map below. If CLI map configuration or launch default is provided, that will be used.
+  # map_server:
+  #   ros__parameters:
+  #     yaml_filename: ""
 
-map_saver:
-  ros__parameters:
-    save_map_timeout: 5.0
-    free_thresh_default: 0.25
-    occupied_thresh_default: 0.65
-    map_subscribe_transient_local: True
+  map_saver:
+    ros__parameters:
+      save_map_timeout: 5.0
+      free_thresh_default: 0.25
+      occupied_thresh_default: 0.65
+      map_subscribe_transient_local: True
 
-planner_server:
-  ros__parameters:
-    expected_planner_frequency: 20.0
-    planner_plugins: ["GridBased"]
-    costmap_update_timeout: 1.0
-    GridBased:
-      # plugin: "nav2_navfn_planner::NavfnPlanner"
-      # tolerance: 0.5
-      # use_astar: false
-      # allow_unknown: true
-      # plugin: "nav2_theta_star_planner::ThetaStarPlanner" # In Iron and older versions, "/" was used instead of "::"
-      # how_many_corners: 16
-      # w_euc_cost: 0.7
-      # w_traversal_cost: 4.0
-      # w_heuristic_cost: 1.0
-      plugin: "nav2_smac_planner::SmacPlanner2D" # In Iron and older versions, "/" was used instead of "::"
-      tolerance: 0.3                     # tolerance for planning if unable to reach exact pose, in meters
-      downsample_costmap: false             # whether or not to downsample the map
-      downsampling_factor: 2                # multiplier for the resolution of the costmap layer (e.g. 2 on a 5cm costmap would be 10cm)
-      allow_unknown: true                   # allow traveling in unknown space
-      max_iterations: 1000000               # maximum total iterations to search for before failing (in case unreachable), set to -1 to disable
-      max_on_approach_iterations: 1000      # maximum number of iterations to attempt to reach goal once in tolerance
-      max_planning_time: 2.0                # max time in s for planner to plan, smooth
-      cost_travel_multiplier: 50.0           # Cost multiplier to apply to search to steer away from high cost areas. Larger values will place in the center of aisles more exactly (if non-`FREE` cost potential field exists) but take slightly longer to compute. To optimize for speed, a value of 1.0 is reasonable. A reasonable tradeoff value is 2.0. A value of 0.0 effective disables steering away from obstacles and acts like a naive binary search A*.
-      use_final_approach_orientation: false # Whether to set the final path pose at the goal's orientation to the requested orientation (false) or in line with the approach angle so the robot doesn't rotate to heading (true)
-      #angle_quantization_bins: 4
-      smoother:
-        max_iterations: 0
-        w_smooth: 0.3
-        w_data: 0.2
-        tolerance: 1.0e-10
+  planner_server:
+    ros__parameters:
+      expected_planner_frequency: 20.0
+      planner_plugins: ["GridBased"]
+      costmap_update_timeout: 1.0
+      GridBased:
+        # plugin: "nav2_navfn_planner::NavfnPlanner"
+        # tolerance: 0.5
+        # use_astar: false
+        # allow_unknown: true
+        # plugin: "nav2_theta_star_planner::ThetaStarPlanner" # In Iron and older versions, "/" was used instead of "::"
+        # how_many_corners: 16
+        # w_euc_cost: 0.7
+        # w_traversal_cost: 4.0
+        # w_heuristic_cost: 1.0
+        plugin: "nav2_smac_planner::SmacPlanner2D" # In Iron and older versions, "/" was used instead of "::"
+        tolerance: 0.3                     # tolerance for planning if unable to reach exact pose, in meters
+        downsample_costmap: false             # whether or not to downsample the map
+        downsampling_factor: 2                # multiplier for the resolution of the costmap layer (e.g. 2 on a 5cm costmap would be 10cm)
+        allow_unknown: true                   # allow traveling in unknown space
+        max_iterations: 1000000               # maximum total iterations to search for before failing (in case unreachable), set to -1 to disable
+        max_on_approach_iterations: 1000      # maximum number of iterations to attempt to reach goal once in tolerance
+        max_planning_time: 2.0                # max time in s for planner to plan, smooth
+        cost_travel_multiplier: 50.0           # Cost multiplier to apply to search to steer away from high cost areas. Larger values will place in the center of aisles more exactly (if non-`FREE` cost potential field exists) but take slightly longer to compute. To optimize for speed, a value of 1.0 is reasonable. A reasonable tradeoff value is 2.0. A value of 0.0 effective disables steering away from obstacles and acts like a naive binary search A*.
+        use_final_approach_orientation: false # Whether to set the final path pose at the goal's orientation to the requested orientation (false) or in line with the approach angle so the robot doesn't rotate to heading (true)
+        #angle_quantization_bins: 4
+        smoother:
+          max_iterations: 0
+          w_smooth: 0.3
+          w_data: 0.2
+          tolerance: 1.0e-10
 
+<<<<<<< HEAD
 smoother_server:
   ros__parameters:
     behavior_plugins: ["spin", "backup", "drive_on_heading", "assisted_teleop", "wait"]
@@ -391,32 +429,56 @@ smoother_server:
     max_rotational_vel: 1.0
     min_rotational_vel: 0.4
     rotational_acc_lim: 3.2
+=======
+  smoother_server:
+    ros__parameters:
+      behavior_plugins: ["spin", "backup", "drive_on_heading", "assisted_teleop", "wait"]
+      spin:
+        plugin: "nav2_behaviors::Spin"
+      backup:
+        plugin: "nav2_behaviors::BackUp"
+      drive_on_heading:
+        plugin: "nav2_behaviors::DriveOnHeading"
+      wait:
+        plugin: "nav2_behaviors::Wait"
+      assisted_teleop:
+        plugin: "nav2_behaviors::AssistedTeleop"
+      local_frame: odom
+      global_frame: map
+      robot_base_frame: base_link
+      transform_tolerance: 0.1
+      simulate_ahead_time: 2.0
+      max_rotational_vel: 1.0
+      min_rotational_vel: 0.4
+      rotational_acc_lim: 3.2
+>>>>>>> dev
 
-waypoint_follower:
-  ros__parameters:
-    loop_rate: 20
-    stop_on_failure: false
-    action_server_result_timeout: 900.0
-    waypoint_task_executor_plugin: "wait_at_waypoint"
-    wait_at_waypoint:
-      plugin: "nav2_waypoint_follower::WaitAtWaypoint"
-      enabled: True
-      waypoint_pause_duration: 200
+  waypoint_follower:
+    ros__parameters:
+      loop_rate: 20
+      stop_on_failure: false
+      action_server_result_timeout: 900.0
+      waypoint_task_executor_plugin: "wait_at_waypoint"
+      wait_at_waypoint:
+        plugin: "nav2_waypoint_follower::WaitAtWaypoint"
+        enabled: True
+        waypoint_pause_duration: 200
 
-velocity_smoother:
-  ros__parameters:
-    smoothing_frequency: 20.0
-    scale_velocities: False
-    feedback: "OPEN_LOOP"
-    max_velocity: [0.5, 0.0, 2.0]
-    min_velocity: [-0.5, 0.0, -2.0]
-    max_accel: [2.5, 0.0, 3.2]
-    max_decel: [-2.5, 0.0, -3.2]
-    odom_topic: "odom"
-    odom_duration: 0.1
-    deadband_velocity: [0.0, 0.0, 0.0]
-    velocity_timeout: 1.0
+  velocity_smoother:
+    ros__parameters:
+      smoothing_frequency: 20.0
+      scale_velocities: False
+      feedback: "OPEN_LOOP"
+      max_velocity: [0.5, 0.0, 2.0]
+      min_velocity: [-0.5, 0.0, -2.0]
+      max_accel: [2.5, 0.0, 3.2]
+      max_decel: [-2.5, 0.0, -3.2]
+      odom_topic: "odom"
+      odom_duration: 0.1
+      deadband_velocity: [0.0, 0.0, 0.0]
+      velocity_timeout: 1.0
 
+<<<<<<< HEAD
 collision_monitor:
   ros__parameters:
     base_frame_id: "robot3/base_footprint"
@@ -461,39 +523,86 @@ docking_server:
     fixed_frame: "odom"
     dock_backwards: false
     dock_prestaging_tolerance: 0.5
+=======
+  collision_monitor:
+    ros__parameters:
+      base_frame_id: "base_footprint"
+      odom_frame_id: "odom"
+      cmd_vel_in_topic: "cmd_vel_smoothed"
+      cmd_vel_out_topic: "cmd_vel"
+      state_topic: "collision_monitor_state"
+      transform_tolerance: 0.2
+      source_timeout: 1.0
+      base_shift_correction: True
+      stop_pub_timeout: 2.0
+      # Polygons represent zone around the robot for "stop", "slowdown" and "limit" action types,
+      # and robot footprint for "approach" action type.
+      polygons: ["FootprintApproach"]
+      FootprintApproach:
+        type: "polygon"
+        action_type: "approach"
+        footprint_topic: "/local_costmap/published_footprint"
+        time_before_collision: 1.2
+        simulation_time_step: 0.1
+        min_points: 6
+        visualize: False
+        enabled: True
+      observation_sources: ["scan"]
+      scan:
+        type: "scan"
+        topic: "scan"
+        min_height: 0.15
+        max_height: 2.0
+        enabled: True
 
-    # Types of docks
-    dock_plugins: ['simple_charging_dock']
-    simple_charging_dock:
-      plugin: 'opennav_docking::SimpleChargingDock'
-      docking_threshold: 0.05
-      staging_x_offset: -0.7
-      use_external_detection_pose: true
-      use_battery_status: false # true
-      use_stall_detection: false # true
+  docking_server:
+    ros__parameters:
+      controller_frequency: 50.0
+      initial_perception_timeout: 5.0
+      wait_charge_timeout: 5.0
+      dock_approach_timeout: 30.0
+      undock_linear_tolerance: 0.05
+      undock_angular_tolerance: 0.1
+      max_retries: 3
+      base_frame: "base_link"
+      fixed_frame: "odom"
+      dock_backwards: false
+      dock_prestaging_tolerance: 0.5
+>>>>>>> dev
 
-      external_detection_timeout: 1.0
-      external_detection_translation_x: -0.18
-      external_detection_translation_y: 0.0
-      external_detection_rotation_roll: -1.57
-      external_detection_rotation_pitch: -1.57
-      external_detection_rotation_yaw: 0.0
-      filter_coef: 0.1
+      # Types of docks
+      dock_plugins: ['simple_charging_dock']
+      simple_charging_dock:
+        plugin: 'opennav_docking::SimpleChargingDock'
+        docking_threshold: 0.05
+        staging_x_offset: -0.7
+        use_external_detection_pose: true
+        use_battery_status: false # true
+        use_stall_detection: false # true
 
-    # Dock instances
-    # The following example illustrates configuring dock instances.
-    # docks: ['home_dock']  # Input your docks here
-    # home_dock:
-    #   type: 'simple_charging_dock'
-    #   frame: map
-    #   pose: [0.0, 0.0, 0.0]
+        external_detection_timeout: 1.0
+        external_detection_translation_x: -0.18
+        external_detection_translation_y: 0.0
+        external_detection_rotation_roll: -1.57
+        external_detection_rotation_pitch: -1.57
+        external_detection_rotation_yaw: 0.0
+        filter_coef: 0.1
 
-    controller:
-      k_phi: 3.0
-      k_delta: 2.0
-      v_linear_min: 0.15
-      v_linear_max: 0.15
+      # Dock instances
+      # The following example illustrates configuring dock instances.
+      # docks: ['home_dock']  # Input your docks here
+      # home_dock:
+      #   type: 'simple_charging_dock'
+      #   frame: map
+      #   pose: [0.0, 0.0, 0.0]
 
+      controller:
+        k_phi: 3.0
+        k_delta: 2.0
+        v_linear_min: 0.15
+        v_linear_max: 0.15
+
+<<<<<<< HEAD
 loopback_simulator:
   ros__parameters:
     base_frame_id: "robot3/base_footprint"
@@ -501,3 +610,12 @@ loopback_simulator:
     map_frame_id: "map"
     scan_frame_id: "robot3/base_scan"  # tb4_loopback_simulator.launch.py remaps to 'rplidar_link'
     update_duration: 0.02
+=======
+  loopback_simulator:
+    ros__parameters:
+      base_frame_id: "base_footprint"
+      odom_frame_id: "odom"
+      map_frame_id: "map"
+      scan_frame_id: "base_scan"  # tb4_loopback_simulator.launch.py remaps to 'rplidar_link'
+      update_duration: 0.02
+>>>>>>> dev
