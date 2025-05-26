@@ -37,7 +37,10 @@
 ### 2.2 Confluence (협업)
 ![Confluence](https://github.com/user-attachments/assets/ffab525f-e6df-4ad6-b81f-3371e87f2c32)
 
-### 2.3 Scenario
+### 2.3 Git
+![git](https://github.com/user-attachments/assets/a946e702-4168-4529-9060-af5ab5e3a18f)
+
+### 2.4 Scenario
 ![scenario_board](https://github.com/user-attachments/assets/b1e50b05-a9de-48c0-bb91-14508f1a5a9c)
 
 ## 3. Design (프로젝트 설계)
@@ -102,6 +105,8 @@
 ### 5.2 Tangerbot Features
 
 #### 5.2.1 Autonomous Driving (자율주행)
+[![call](https://img.youtube.com/vi/deswGHgMtCY/0.jpg)](https://youtube.com/shorts/deswGHgMtCY)
+
 - 로봇은 FollowPath Action을 Tangerbot Server로 부터 생성된 경로와 함께 요청 받으면 RPP (Requlated Pure Pursuit) controller로 경로를 추종한다. 
 
 #### 5.2.2 Following Person (팔로윙)
@@ -113,18 +118,21 @@
 
 #### 5.2.3 Avoiding Obstacle
 [![obstacle](https://img.youtube.com/vi/deswGHgMtCY/0.jpg)](https://youtube.com/shorts/deswGHgMtCY)
+
 - Tangerbot Server는 주행 중 Vision Server로부터 ObstacleBool Topic을 통해 로봇의 장애물 감지 유무를 확인할 수 있다.
 - 장애물이 감지되면 Tangerbot Server는 FollowPath Action을 취소하고 장애물이 감지되지 않을 때까지 후진 회피한다.
 - 이후 경로를 재생성해 다시 로봇에게 FollowPath Action을 요청한다.
 
 #### 5.2.4 Parking
 [![Parking](https://img.youtube.com/vi/deswGHgMtCY/0.jpg)](https://youtube.com/shorts/deswGHgMtCY)
+
 - 홈 위치에 도착한 로봇은 FollowPath Action Result를 Tangerbot Server에 전송한다.
 - Tangerbot Server는 로봇에게 Parking Action을 통해 특정 홈에 맞는 marker_id와 함께 요청한다.
 - 로봇은 마커와의 상대적인 좌표를 계산하여 스스로 주차할 수 있다.
 
 #### 5.2.5 Speech Recognition (음성 인식)
 [![speech](https://img.youtube.com/vi/deswGHgMtCY/0.jpg)](https://youtube.com/shorts/deswGHgMtCY)
+
 - 로봇은 Wake Word (핑키야)를 통해 음성 인식을 시작하며, 2초간 음성이 인식되지 않으면 Talker Server에 RawVoice Topic으로 음성 데이터를 전송한다.
 - 음성 데이터를 받은 Talker 서버는 STT를 적용하여 Tangerbot Server로 전달한다.
 - 다시 Tangerbot Server는 변환된 텍스트를 분석해 명령을 판단한다.
@@ -137,28 +145,34 @@
 ### 5.3 Admin Features
 
 #### 5.3.1 Robot Monitoring
+
 ![admin](https://github.com/user-attachments/assets/d2c263fa-8448-44af-b7ad-afdbc969671a)
 - Admin은 메인 화면에서 로봇의 상태(위치, 작업, 배터리)와 실시간 영상, 작업량을 확인할 수 있다.
 
 #### 5.3.2 Statistical Report
+
 ![adminsta](https://github.com/user-attachments/assets/c36ea4e8-50e9-4dae-9ec8-fff0c107bd81)
 - Admin은 감귤 수확량의 통계를 확인할 수 있다.
 
 ## 6. Adapted Technology (적용 기술)
 
 ### 6.1 Pose Estimation (로봇 자세 추정)
+
 ![pose](https://github.com/user-attachments/assets/2342cbf5-10c1-49d7-9c79-15f3754126c0)
 
 #### 6.1.1 Camera Pose Estimation
 - Map -> Base Marker TF를 발행하여 기준 마커를 둔다.
-- Camera에 대한 Base Marker rvec, tvec을 역변환하여 Base Marker에 대한 Camera의 위치를 추정한다. 수식은 다음과 같다.   
+- Camera에 대한 Base Marker rvec, tvec을 역변환하여 Base Marker에 대한 Camera의 위치를 추정한다. 수식은 다음과 같다.
+
 ![marker_to_camera](https://github.com/user-attachments/assets/aa00505b-df03-48ab-bd60-8edcf267282a)
-- 이전에 발행한 TF를 기반으로 Map -> Camera 위치를 추정한다.   
+- 이전에 발행한 TF를 기반으로 Map -> Camera 위치를 추정한다.
+
 ![map_to_camera](https://github.com/user-attachments/assets/86f5c216-914d-47fb-9daf-c4b75b0a4995)
 - Camera 위치가 바뀌거나 흔들리는 변수를 위해 코드를 통해 자동화
 
 #### 6.1.2 Robot Pose Estimation
-- Map -> Camera TF와 Camera에 대한 Robot Marker의 rvec, tvec을 통해 Map -> Robot의 위치를 추정한다.   
+- Map -> Camera TF와 Camera에 대한 Robot Marker의 rvec, tvec을 통해 Map -> Robot의 위치를 추정한다.
+
 ![map_to_robot](https://github.com/user-attachments/assets/e6d5f635-587c-4bae-a8c4-a8ea3dd50a63)
 
 #### 6.1.3 Trouble Shooting
@@ -198,10 +212,50 @@
 
 ### 6.3 Shared Memory
 
-#### 6.3.1 Streaming Requirements
-- Tangerbot은 3개의 노드 (follower, human_pose, gesture)가 동일 영상 접근이 필요하다.
-- 로봇3대 * 카메라3개 = 총 9개의 영상 스트림 처리해야한다.
-- 실시간 처리 가능해야한다.
+#### 6.3.1 Architecture
+- **메모리 주소 기반으로 직접 접근**하게 함으로써, **데이터 중복 없이**, **고속이며 동기적인 프레임 공유 구조**를 설계
+  - 중앙 수신 노드에서 **Shared Memory에 프레임 저장**
+  - 각 인식 노드는 **메모리 주소 기반 직접 참조** -> **데이터 복사 최소화**
+  - 각 노드는 메모리 '읽기'만 수행
+
+### 6.4 Stereo Depth Estimation
+
+#### 6.4.1 CPU vs GPU
+1. CPU 결과 (OpenCV SGBM)
+
+![depth](https://github.com/user-attachments/assets/3869cd93-2b0b-4941-847c-1c7b5327b0a0)
+
+  - 중간 거리까지는 안정적인 뎁스 추정 가능
+  - 그러나 **프레임 드랍**이 자주 발생하며 실시간 동작 어려움
+
+2. GPU 결과 (CUDA SGM)
+
+![gpu](https://github.com/user-attachments/assets/321239a5-c959-4475-873a-dce94755241b)
+
+- 거친 표현이지만 실시간성 확보
+- 일부 영역에 구멍, 정제되지 않은 패턴 존재 -> 후처리 필요
+
+#### 6.4.2 Filtering
+1. 스파클 제거 (Speckle Filtering)
+   - ```cv::filterSpeckles()``` 함수는 이러한 작은 잡음들을 **Flood Fill 방식으로 제거**
+   - 결과: **랜덤하게 박힌 노이즈 제거**, 작은 홀도 함께 제거 가능
+2. CUDA 기반 양방향 필터 (Bilateral Filter)
+  - 목적: 깊이 맵에서 경계(edge)는 유지하면서, 내부 노이즈만 부드럽게 처리
+  - ```cv::cuda::bilateralFilter()```를 활용해 GPU 상에서 직접 필터링을 병렬 수행
+
+#### 6.4.3 Pipeline
+- Camera -> Recitify -> CUDA Disparity -> Post-Processing -> Depth Map -> Visualization
+
+### 6.4 Object Segmentation & Tracking
+
+#### 6.4.1 YOLOv8-Seg
+- 객체 마스크를 추출하며 사람 class만 필터링하였다.
+
+#### 6.4.2 DeepSORT
+-  Kalman Filter + IoU (Intersection over Union) + Re-DI (Re-identification) 기반 객체 추적
+
+#### 6.4.3 Pipeline
+- YOLOv8 Seg -> Person Detection + Mask -> DeepSORT 추적 -> 특정 ID 마스크 중심 추출 -> 좌표 퍼블리시
 
 #### 6.3.2 Architecture Selection
 ![arch](https://github.com/user-attachments/assets/e08ff619-a4d2-4cbb-b5d2-6962b9ad0ba2)
