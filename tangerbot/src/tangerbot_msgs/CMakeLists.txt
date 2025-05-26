@@ -23,6 +23,8 @@ rosidl_generate_interfaces(${PROJECT_NAME}
   "msg/DetectedMarker.msg"
   "msg/PathResult.msg"
   "msg/RawVoice.msg"
+  "msg/ObstacleBool.msg"
+
   "srv/HandleCommand.srv"
   "srv/SetFollowMode.srv"
   "srv/SignUp.srv"

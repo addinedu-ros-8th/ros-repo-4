@@ -22,15 +22,15 @@ using Twist = geometry_msgs::msg::Twist;
 TangerbotManager::TangerbotManager() : Node("tangerbot_manager")
 {
     // initalization
-    robot_id = "robot1";
-    main_status = tangerbot_msgs::msg::RobotState::WORKING;
+    main_status = tangerbot_msgs::msg::RobotState::IDLE;
     motion_status = tangerbot_msgs::msg::RobotState::STOP;
     pid_linear = PID(0.5, 0.1, 1);
     pid_angular = PID(1.5, 0.1, 1);
+    ns = robot_id;
 
     // publisher
     state_publisher = this->create_publisher<tangerbot_msgs::msg::RobotState>("robot_state", 10);
-    cmd_vel_pub  = this->create_publisher<Twist>("/cmd_vel", 10);
+    cmd_vel_pub  = this->create_publisher<Twist>(ns + "/cmd_vel", 10);
     timer_ = this->create_wall_timer(500ms, std::bind(&TangerbotManager::state_callbacks, this));
     workload_timer = this->create_wall_timer(1s, std::bind(&TangerbotManager::update_workload, this));
     
@@ -43,12 +43,12 @@ TangerbotManager::TangerbotManager() : Node("tangerbot_manager")
     );
 
     // service
-    set_state_server = this->create_service<SetState>("set_state", std::bind(&TangerbotManager::set_state, this, _1, _2));
+    set_state_server = this->create_service<SetState>(ns + "/set_state", std::bind(&TangerbotManager::set_state, this, _1, _2));
     
     // action
     parking_server = rclcpp_action::create_server<Parking>(
         this,
-        "parking",
+        ns + "parking",
         std::bind(&TangerbotManager::parking_handle_goal, this, _1, _2),
         std::bind(&TangerbotManager::parking_handle_cancel, this, _1),
         std::bind(&TangerbotManager::parking_handle_accepted, this, _1)
@@ -232,9 +232,31 @@ void TangerbotManager::parking_execute(const std::shared_ptr<GoalHandlerParking>
 
             std::this_thread::sleep_for(std::chrono::seconds(1)); 
         }
+<<<<<<< HEAD
+        //
+        std::vector<int> v;
+        v.push_back(local_marker_msg.marker_id);
+        //
+        int marker_index = find_index(v, target_marker_id);
+        // int marker_index = find_index(local_marker_msg.marker_id, target_marker_id);
+        if (marker_index == -1) {
+            result->success = false;
+            goal_handle->abort(result);
+            cmd_vel_pub->publish(stop_cmd_vel);
+            return;
+        }
+        
+        // double x = local_marker_msg.relative_point[marker_index].x;
+        // double z = local_marker_msg.relative_point[marker_index].z;
+        
+        double x = local_marker_msg.relative_point.x;
+        double z = local_marker_msg.relative_point.z;
+
+=======
         
         double x = detected_marker_msg.relative_point[marker_index].x;
         double z = detected_marker_msg.relative_point[marker_index].z;
+>>>>>>> dev
         RCLCPP_INFO(this->get_logger(), "x: %lf, z: %lf", x, z);
         auto current_time = std::chrono::high_resolution_clock::now();
         auto dt = std::chrono::duration<double>(current_time - prev_time).count();

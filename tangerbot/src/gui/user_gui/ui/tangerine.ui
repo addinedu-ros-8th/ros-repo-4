@@ -35,7 +35,7 @@
        <item row="0" column="0">
         <widget class="QStackedWidget" name="stackedWidget">
          <property name="currentIndex">
-          <number>4</number>
+          <number>0</number>
          </property>
          <widget class="QWidget" name="page">
           <layout class="QVBoxLayout" name="verticalLayout">
@@ -264,7 +264,7 @@ color: black;
                     </font>
                    </property>
                    <property name="text">
-                    <string>🧡 </string>
+                    <string/>
                    </property>
                    <property name="alignment">
                     <set>Qt::AlignCenter</set>
@@ -643,7 +643,7 @@ color: black;
                     </font>
                    </property>
                    <property name="text">
-                    <string>🧡</string>
+                    <string/>
                    </property>
                    <property name="alignment">
                     <set>Qt::AlignCenter</set>
@@ -761,6 +761,12 @@ background-color: #E6E6E6;
                            <height>40</height>
                           </size>
                          </property>
+                         <property name="styleSheet">
+                          <string notr="true">color: black</string>
+                         </property>
+                         <property name="text">
+                          <string/>
+                         </property>
                         </widget>
                        </item>
                       </layout>
@@ -812,6 +818,15 @@ background-color: #E6E6E6;
                            <width>0</width>
                            <height>40</height>
                           </size>
+                         </property>
+                         <property name="styleSheet">
+                          <string notr="true">color: black</string>
+                         </property>
+                         <property name="text">
+                          <string/>
+                         </property>
+                         <property name="echoMode">
+                          <enum>QLineEdit::Password</enum>
                          </property>
                         </widget>
                        </item>
@@ -1770,7 +1785,7 @@ color:black;
                            <string notr="true"/>
                           </property>
                           <property name="text">
-                           <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p align=&quot;center&quot;&gt;🩷&lt;/p&gt;&lt;p align=&quot;center&quot;&gt;We found the robot for you!&lt;/p&gt;&lt;p align=&quot;center&quot;&gt;Robot will be arrived in __ minutes :)&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+                           <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p align=&quot;center&quot;&gt;We found the robot for you!&lt;/p&gt;&lt;p align=&quot;center&quot;&gt;Robot will be arrived in __ minutes :)&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
                           </property>
                           <property name="alignment">
                            <set>Qt::AlignCenter</set>

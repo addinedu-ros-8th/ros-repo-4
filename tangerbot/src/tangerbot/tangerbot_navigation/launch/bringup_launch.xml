@@ -2,7 +2,7 @@
 <launch>
     <set_env name="RCUTILS_LOGGING_BUFFERED_STREAM" value="1"/>
 
-    <arg name="namespace" default=""/>
+    <arg name="namespace" default="robot1"/>
     <arg name="map" default="$(find-pkg-share tangerbot_navigation)/map/my_map.yaml"/>
     <arg name="use_sim_time" default="False"/>
     <arg name="params_file" default="$(find-pkg-share tangerbot_navigation)/params/nav2_params.yaml"/>
@@ -20,10 +20,8 @@
                        'bt_navigator',
                        'waypoint_follower',
                        'velocity_smoother']"/>
-
-    <group>
-        <push-ros-namespace namespace="$(var namespace)"/>
-        <node pkg="rclcpp_components" exec="component_container_isolated" name='$(var container_name)' output="screen" args="--ros-args --log-level $(var log_level)">
+    
+    <node pkg="rclcpp_components" exec="component_container_isolated" name='$(var container_name)' output="screen" args="--ros-args --log-level $(var log_level)">
             <param from="$(var params_file)"/>
             <param name='map' value="$(var map)"/>
             <param name='autostart' value="$(var autostart)"/>
@@ -32,6 +30,9 @@
             <remap from="/tf" to="tf"/>
             <remap from="/tf_static" to="tf_static"/>
         </node>
+    <group>
+        <push-ros-namespace namespace="$(var namespace)"/>
+        
 
         <include file="$(find-pkg-share tangerbot_navigation)/launch/localization_launch.xml">
             <arg name="params_file" value="$(var params_file)"/>
