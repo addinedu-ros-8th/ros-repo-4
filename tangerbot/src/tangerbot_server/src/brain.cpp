@@ -47,11 +47,6 @@ Brain::Brain() : Node("brain") {
     tserver_set_follow_mode_client_ = this->create_client<SetFollowMode>("/tserver/set_follow_mode");
     set_human_pose_mode_client_ = this->create_client<SetFollowMode>("/set_human_pose_follow_mode");
     set_state_client_ = this->create_client<SetState>("set_state");
-    redirect_client_ = this->create_client<Redirect>("redirect");
-<<<<<<< HEAD
-=======
-
->>>>>>> dev
 
     //Action Client
     path_planning_client_ = rclcpp_action::create_client<tangerbot_msgs::action::PathPlanning>(this, "path_planning");
@@ -538,15 +533,10 @@ void Brain::handle_command_service_callback(
         response->success = true;
 
 
-<<<<<<< HEAD
-
-    } 
-=======
         // 4. Gesture On
         
         return;
     }
->>>>>>> dev
 
     response->success = true;
 }

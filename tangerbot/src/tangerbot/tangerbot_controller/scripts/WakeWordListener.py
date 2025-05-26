@@ -26,14 +26,14 @@ class WakeWordListener(Node):
         # 감정 서비스 클라이언트
         self.emotion_cli = self.create_client(Emotion, 'set_emotion')
         while not self.emotion_cli.wait_for_service(timeout_sec=1.0):
-            self.get_logger().info('⏳ 감정 서비스 기다리는 중...')
+            self.get_logger().info('감정 서비스 기다리는 중...')
 
         self.recognizer = sr.Recognizer()
         self.mic = sr.Microphone(device_index=1)
         self.trigger_word = "핑키야"
         self.listening = False
 
-        self.get_logger().info("🔊 Wake word listener 시작됨. '핑키야'라고 말하세요.")
+        self.get_logger().info("Wake word listener 시작됨. '핑키야'라고 말하세요.")
         self.timer = self.create_timer(0.1, self.listen_loop)
 
     def listen_loop(self):
@@ -41,13 +41,13 @@ class WakeWordListener(Node):
             return
 
         with self.mic as source:
-            self.get_logger().info("👂 대기 중...")
+            self.get_logger().info("대기 중...")
             self.recognizer.adjust_for_ambient_noise(source)
             audio = self.recognizer.listen(source)
 
         try:
             text = self.recognizer.recognize_google(audio, language="ko-KR")
-            self.get_logger().info(f"🗣 인식된 텍스트: {text}")
+            self.get_logger().info(f"인식된 텍스트: {text}")
 
             if self.trigger_word == text:
                 self.listening = True
@@ -67,7 +67,7 @@ class WakeWordListener(Node):
                 if audio_np is not None:
                     self.publish_raw_voice(audio_np)
                 else:
-                    self.get_logger().warn("⛔ 유효한 음성 없음")
+                    self.get_logger().warn("❌ 유효한 음성 없음")
                     req = Emotion.Request()
                     req.emotion = "sad"
                     self.emotion_cli.call_async(req)
@@ -131,7 +131,7 @@ class WakeWordListener(Node):
         return np.max(np.frombuffer(audio_bytes, dtype=np.int16)) > 500
 
     def publish_raw_voice(self, audio_np):
-        self.get_logger().info("📤 오디오 데이터 WAV 인코딩 중...")
+        self.get_logger().info("오디오 데이터 WAV 인코딩 중...")
 
         buf = io.BytesIO()
         with wave.open(buf, 'wb') as wf:
@@ -148,9 +148,9 @@ class WakeWordListener(Node):
         msg.robot_id = "pinky"
         msg.data = list(wav_uint8_array)
 
-        self.get_logger().info(f"✅ 퍼블리시 준비 완료 - 길이: {len(msg.data)} bytes")
+        self.get_logger().info(f"퍼블리시 준비 완료 - 길이: {len(msg.data)} bytes")
         self.raw_voice_pub_.publish(msg)
-        self.get_logger().info("📢 RawVoice 메시지 퍼블리시 완료")
+        self.get_logger().info("RawVoice 메시지 퍼블리시 완료")
 
 def main(args=None):
     rclpy.init(args=args)

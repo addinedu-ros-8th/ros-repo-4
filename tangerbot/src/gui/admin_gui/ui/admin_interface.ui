@@ -125,8 +125,7 @@
                    </sizepolicy>
                   </property>
                   <property name="styleSheet">
-                   <string notr="true">
-</string>
+                   <string notr="true"/>
                   </property>
                   <property name="text">
                    <string/>
@@ -390,7 +389,7 @@
              <item row="0" column="0">
               <widget class="QStackedWidget" name="stackedWidget">
                <property name="currentIndex">
-                <number>4</number>
+                <number>0</number>
                </property>
                <widget class="QWidget" name="page1">
                 <layout class="QGridLayout" name="gridLayout_4">
@@ -827,7 +826,7 @@ color:black;</string>
 color:black;</string>
                        </property>
                        <property name="text">
-                        <string>pinky3</string>
+                        <string>robot3</string>
                        </property>
                        <property name="alignment">
                         <set>Qt::AlignCenter</set>
@@ -864,7 +863,7 @@ color:black;</string>
 color:black;</string>
                        </property>
                        <property name="text">
-                        <string>pinky2</string>
+                        <string>robot2</string>
                        </property>
                        <property name="alignment">
                         <set>Qt::AlignCenter</set>
@@ -901,7 +900,7 @@ color:black;</string>
 color:black;</string>
                        </property>
                        <property name="text">
-                        <string>pinky1</string>
+                        <string>robot1</string>
                        </property>
                        <property name="alignment">
                         <set>Qt::AlignCenter</set>

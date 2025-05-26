@@ -21,6 +21,7 @@ rosidl_generate_interfaces(${PROJECT_NAME}
   "msg/CallState.msg"
   "msg/LocalMap.msg"
   "msg/DetectedMarker.msg"
+  "msg/RawVoice.msg"
   "srv/HandleCommand.srv"
   "srv/SetFollowMode.srv"
 
