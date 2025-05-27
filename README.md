@@ -270,6 +270,9 @@
 ### 6.4 Object Segmentation & Tracking
 
 #### 6.4.1 YOLOv8-Seg
+
+![myung](https://github.com/user-attachments/assets/9e77cbeb-b4db-406f-a7f6-4739134e54bb)
+
 - 객체 마스크를 추출하며 사람 class만 필터링하였다.
 
 #### 6.4.2 DeepSORT
